@@ -42,8 +42,6 @@ So, **a file that identically stores the binary codes of a disk is called disk i
 
 > Notes: **disk image is a file**. In essence, disk image has no difference to your `.ppt` , `.xlsx` files. Only the content in the disk image decide if the file is a disk image. If the binary content of a file matches a certain disk, then the file is a disk image of that disk.
 
-
-
 ### B. Create Disk Image
 
 To create disk image, several tools are available.
@@ -233,13 +231,111 @@ Whatever editor/IDE you'd like, `vscode`, `vim`, `lunarvim`, `clion`, etc. is fi
 
 We need a virtual machine to run and debug our kernel.
 
-### A. Debugging
+### A. Bochs (Debugging)
 
 Under many circumstances, we need to single step debugging. For example, when programming for scheduler or multiprocess, we need single step debugging to see what happened during the seconds. So, for single step debugging, we will use `bochs` .
 
 Popular debugging virtual machines include `bochs` and `qemu`. But since I'm much more familiar with `bochs`, I'll just keep using `bochs`.
 
+#### 1) Installation (Bochs 2.7)
+
 You can just install `bochs` via its `sourceforge`, it's very easy to compile and install it. Remember, since the `bochs` can simulate your devices, YOU NEED TO COMPILE IT ON YOUR PLATFORM (YOUR OWN COMPUTER).
+
+We first need to download `bochs`, here we use `bochs 2.7`
+
+```shell
+visit https://sourceforge.net/projects/bochs/files/bochs/2.7/bochs-2.7.tar.gz/download to download
+```
+
+then extract source code.
+
+```shell
+tar xzvf bochs-2.7.tar.gz
+```
+
+Before compile, configure compile options first (a popular configure command is listed below):
+
+```shell
+cs bochs-2.7
+./configure --enable-debugger --enable-iodebug --enable-x86-debugger --with-x --with-x11 
+```
+
+Finally, make and install `bochs`
+
+```shell
+make -j $(nproc)
+make install
+```
+
+
+
+For more information, please check `bochs`  manual `Chapter 3: Installation`
+
+
+
+#### 2) Configure Bochs
+
+To run our kernel, we need to setup configuration of the virtual machine that our kernel will be run on.
+
+Here's my `bochrc` configuration
+
+```shell
+###############################################################
+
+# Configuration file for Bochs
+
+###############################################################
+
+# how much memory the emulated machine will have
+
+megs: 32
+
+# filename of ROM images
+
+romimage: file=/usr/local/share/bochs/BIOS-bochs-latest
+vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
+
+# what disk images will be used
+
+# floppya: 1_44=a.img, status=inserted
+
+# choose the boot disk.
+
+boot: disk
+
+# where do we send log messages?
+
+# log: bochsout.txt
+
+# disable the mouse and enable us keyboard
+
+mouse: enabled=0
+keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
+
+# 硬盘设置
+
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+
+# Created hard disk image 'JackOS.img' with CHS=406/16/63
+
+ata0-master: type=disk, path="JackOS.img", mode=flat
+
+# gdb远程调试支持, 需要编译Bochs时候指定--enable-gdb-stub参数, 否则报错
+
+# gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
+```
+
+
+
+
+
+#### 3) Basic Debug Command
+
+Manual is always the best tutorial. Please check the manual: https://bochs.sourceforge.io/doc/docbook/user/index.html
+
+For Chinese reader, here's a Chinese version of basic debug command: https://petpwiuta.github.io/2020/05/09/Bochs%E8%B0%83%E8%AF%95%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/
+
+
 
 
 
