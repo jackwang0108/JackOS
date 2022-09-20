@@ -10,6 +10,7 @@ echo "Build JackOS.bin..."
 if ! nasm "$shell_folder"/boot/mbr.asm -I "$shell_folder"/boot/include -f bin -o "$shell_folder"/JackOS.bin -l "$shell_folder"/JackOS.lst ;
 then
     echo "Build fail!"
+    exit  2
 fi
 
 # write disk img
@@ -17,6 +18,7 @@ echo "Write disk img..."
 if ! dd if="$shell_folder"/JackOS.bin of="$shell_folder"/JackOS.img conv=notrunc > /dev/null;
 then
     echo "Write fail!"
+    exit 3
 fi
 
 # run
