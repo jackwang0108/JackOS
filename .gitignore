@@ -2,5 +2,7 @@
 **/*.bin
 
 # ignore folder
+.vscode
+ThirdParty
 test
 VirtualMachines
