@@ -16,6 +16,20 @@ Read the project README in other language: [简体中文](README-zh.md)
 
 
 
+
+
+# Target
+
+What I want JackOS be like are:
+
+- a 32-bit OS working under text mode (I don't want to **currently** burden myself with graphic/GPU things...)
+- use paging to manage physical memory and provide virtual memory management.
+- has a basic `ext` file system, which could offer abstraction like `file`/`path` and etc.
+- can management basic device like keyboard / flash.
+- may be deadlock detection? Like banker's algorithm. I don't know, just probably.
+
+
+
 # Workflow Tools (With explanation)
 
 To write, test and debug the kernel, a series of tools are needed. All the tools introduced below are organized according to develop workflow. 
@@ -28,7 +42,7 @@ SO, read this section, you will get to know develop workflow of kernel programmi
 
 ### A. Explanation
 
-A disk is a **physical** block of cells (bits), each cell (bit) can store a bit number, either 0/1.
+A disk is a **physical** collections of cells/block (bits), each cell (bit) can store a bit number, either 0/1.
 
 So, we can divide disk into two parts: a series of binary codes and the physical device that store the binary codes.
 
@@ -221,9 +235,29 @@ And result of `vimdiff` is
 
 
 
-## 2. Programming
+## 2. Programming and Compile
 
-Whatever editor/IDE you'd like, `vscode`, `vim`, `lunarvim`, `clion`, etc. is fine. Just you like it.
+### A. Text Editor
+
+Whatever editor/IDE you'd like, `vscode`, `vim`, `lunarvim`, `clion`, etc. Anything can write is fine. Just you like it.
+
+### B. Compiler
+
+#### 1) Assembly Compiler
+
+**For developing OS, we have to do some dirty assembly works :(**. There's a lot of assembly compiler we can use, like `masm`, `at` and etc. Likewise, we can choose `x86` format assembly or `AT&T` format.
+
+But in consideration of online help, it's better to use `x86` assembly format for it's classic and there are a lot of resources we can use on the Internet.
+
+But unfortunately, one of the most famous and classic `x86` assembler is `masm` which belongs to Intel and **it is not free**. 
+
+So, I just choose to use `nasm`, a new (considering `masm` was created in 1970s), popular (more and more people are using `nasm`), and fancy (it offers a lot of macro) `x86` assembler.
+
+
+
+#### 2) C Compiler
+
+Not decided yet, since cross-compile may be needed, so I'm still seeking which C compiler (`gcc`/`clang`) is more easy to cross-compile.
 
 
 
