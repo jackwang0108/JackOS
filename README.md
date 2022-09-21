@@ -1,4 +1,4 @@
-![JackOS](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/JackOSALL.png)
+![JackOS](.assets/JackOSALL.png)
 
 # JackOS
 
