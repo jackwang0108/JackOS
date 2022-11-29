@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "stdint.h": "c",
+        "string.h": "c",
+        "print.h": "c",
+        "thread.h": "c",
+        "global.h": "c",
+        "interrupt.h": "c",
+        "list.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}

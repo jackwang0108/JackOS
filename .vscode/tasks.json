@@ -1,0 +1,115 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "echo",
+            "type": "shell",
+            "command": "echo",
+            "args": [
+                "$PATH"
+            ],
+            "options": {
+                "env": {
+                    "PATH": "$PATH:this"
+                }
+            }
+        },
+        {
+            "label": "init",
+            "command": "bash",
+            "args": [
+                "${workspaceFolder}/init.sh"
+            ]
+        },
+        {
+            "label": "make-all",
+            "command": "make",
+            "args": [
+                "${input:gdb}",
+                "-f",
+                "makefile",
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}",
+            },
+            "group": "build",
+            "dependsOn": "init",
+        },
+        {
+            "label": "run-bochs-debugger",
+            "command": "bochs",
+            "args": [
+                "-f",
+                "bochsrc"
+            ],
+            "dependsOn": "make-all"
+        },
+        {
+            "label": "run-bochs-gdb",
+            "command": "/home/jack/opt/bochs/with-gdb/bin/bochs",
+            "args": [
+                "-f",
+                "${workspaceFolder}/bochsrc",
+                "-q",
+                "-unlock"
+            ],
+            "isBackground": true,
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "problemMatcher": [
+                {
+                    "pattern": {
+                        "regexp": "^(Starting Bochs-GDB)",
+                        "line": 1,
+                    },
+                    "background": {
+                        "activeOnStart": true,
+                        "beginsPattern": ".*Now run 'gdb' in another window.",
+                        // 要对应编译成功后,一句echo的内容. 此处对应 Makefile Line:170
+                        "endsPattern": "."
+                    }
+                }
+            ],
+            "dependsOn": "make-all"
+        },
+        {
+            "label": "make-clean",
+            "command": "make",
+            "args": [
+                "clean"
+            ],
+        },
+        {
+            "label": "kill-bochs",
+            "command": "bash",
+            "args": [
+                "-c",
+                "ps aux | grep bochs | grep -v 'grep' | awk '{print $2}' | xargs kill"
+            ],
+            "dependsOn": "make-clean"
+        },
+        {
+            "label": "clear-bochs-remains",
+            "command": "rm",
+            "args": [
+                "${workspaceFolder}/JackOS.img.lock"
+            ],
+            "dependsOn": "kill-bochs"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "gdb",
+            "type": "pickString",
+            "default": "with-gdb",
+            "options": [
+                "no-gdb",
+                "with-gdb"
+            ],
+            "description": "选择是否使用GDB来进行BOCHS调试"
+        }
+    ]
+}

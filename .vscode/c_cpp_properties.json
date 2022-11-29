@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/kernel",
+                "${workspaceFolder}/thread",
+                "${workspaceFolder}/device",
+                "${workspaceFolder}/lib",
+                "${workspaceFolder}/lib/kernel"
+            ],
+            "defines": [],
+            "compilerPath": "${workspaceFolder}/tools/bin/i686-elf-gcc",
+            "cStandard": "gnu17",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "linux-gcc-x64",
+            "configurationProvider": "ms-vscode.makefile-tools"
+        }
+    ],
+    "version": 4
+}
