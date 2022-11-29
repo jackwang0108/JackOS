@@ -16,6 +16,41 @@ Read the project README in other language: [简体中文](README-zh.md)
 
 
 
+# Usage
+
+## preparation
+
+`init.sh` is a simple command line tool for initializing and quickly running the JackOS.
+
+> Note: by default, cross-compile toolchain source code will be download at `<ProjectBaseDir>/tools/src`, and compiled cross-compile tools will be installed at `<ProjectBaseDir>/tools/bin`. You can change first few lines of `init.sh` to change installation path.
+
+Run `bash init.sh -h`, and you will see:
+
+```sh
+❯ bash init.sh -h
+Init tools for downloading, compiling, installing debugger and corss-compile toolchain of JackOS, created by Jack Wang
+Options:
+    -h, --help                Show this help message
+    -d, --download            Download toolchain
+    -c, --compile             Compile toolchain
+```
+
+To run the OS, first run:
+
+```sh
+bash init.sh -d
+```
+
+The tool will download cross-compile toolchains for you. **If download failed, remove the download folder by `rm -r <download-folder>`  and re-run `bash init.sh -d` to download.
+
+
+After that, run following command to compile and install cross-compile toolchains:
+
+```sh
+bash init.sh -c
+```
+
+This may take a few minutes. 
 
 
 # Target
