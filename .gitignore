@@ -1,9 +1,12 @@
+# ignore file
 **/*.img
 **/*.bin
 **/*.lst
 
+bochsrc
+log.bochsrc.disk
+
+
 # ignore folder
-.vscode
-ThirdParty
-test
-VirtualMachines
+build
+tools
