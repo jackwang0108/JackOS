@@ -15,6 +15,10 @@
 // 此外，0x1F是CPU保留的中断号（目前只用了19个），从0x20个开始，是给用户使用的
 #define IDT_DESC_CNT 0x30
 
+
+#define EFLAGS_IF   0x00000200              // eflags寄存器中，if位为1
+#define GET_EFLAGS(EFLAGS_VAR) asm volatile ("pushfl; popl %0;" : "=g"(EFLAGS_VAR))
+
 // 中断门描述符结构体
 typedef struct __gate_desc {
     uint16_t    func_offset_low_word;       // 中断处理程序在目标段内的偏移的0~15位
@@ -52,11 +56,11 @@ static void pic_init(void){
     outb(PIC_S_DATA, 0b00000001);               // ICW4: 8086，正常EOI
 
     // 打开主片IR0，开启时钟中断、键盘中断，为调度做准备
-    outb(PIC_M_DATA, 0b11111100);
+    outb(PIC_M_DATA, 0b11111110);
     outb(PIC_S_DATA, 0b11111111);
 
     // // 测试键盘，之打开主片IR1，开启键盘中断，为输入做准备
-    // outb(PIC_M_DATA, 0b11111101);
+    // outb(PIC_M_DATA, 0b11111110);
     // outb(PIC_S_DATA, 0b11111111);
 
     put_str("    pic_init done\n");
@@ -104,8 +108,10 @@ static void general_intr_handler(uint8_t vec_nr){
     int cursor_pos = 0;
     // 屏幕左上角清理出一块空白区域，用于打印异常信息
     set_cursor(cursor_pos);
-    while (cursor_pos++ < 320)
+    while (cursor_pos < 320){
         put_char(' ');
+        cursor_pos++;
+    }
     
     // 输出信息
     set_cursor(0);
@@ -187,15 +193,13 @@ void idt_init(){
     pic_init();                             // init 8259A
     
     // 加载idt, idtr高32位是idt基地址, 低16位是16位的表界限
-    uint64_t idt_operand = ((sizeof(idt) - 1) | (uint64_t) ((uint32_t)idt << 16));
+    uint64_t idt_operand = ((sizeof(idt) - 1) | ((uint64_t)(uint32_t)idt << 16));
     asm volatile ("lidt %0" : : "m" (idt_operand));
     put_str("    idtr loaded\n");
     put_str("idt_init done\n");
 }
 
 
-#define EFLAGS_IF   0x00000200              // eflags寄存器中，if位为1
-#define GET_EFLAGS(EFLAGS_VAR) asm volatile ("pushfl; popl %0;" : "=g"(EFLAGS_VAR))
 
 /**
  * @brief 开中断，并且返回中断之前的状态

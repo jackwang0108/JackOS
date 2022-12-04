@@ -4,16 +4,17 @@ PREFIX = /home/jack/projects/ElephantBook/tools/bin
 AS = nasm
 CC = $(PREFIX)/i686-elf-gcc
 LD = $(PREFIX)/i686-elf-ld
-LIB = -I lib/ -I lib/kernel -I lib/usr -I kernel -I device -I thread
+LIB = -I lib/ -I lib/kernel -I lib/user -I kernel -I device -I thread -I userprog
 # -W 表示Warning相关的Flag, -f 表示选择option, gcc为了加速会对一些诸如abs，strncpy等进行重定义，禁止gcc的这一行为
-CFLAGS = -Wall $(LIB) -c -fno-builtin -Wstrict-prototypes -Wmissing-prototypes -g
+CFLAGS = -O0 -W -Wall $(LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -g -Werror=incompatible-pointer-types
 LDFLAGS = -Ttext $(ENTRY_POINT) -e main -Map $(BUILD_DIR)/kernel.map
 OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/timer.o $(BUILD_DIR)/kernel.o $(BUILD_DIR)/print.o\
 		$(BUILD_DIR)/debug.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/bitmap.o\
 		$(BUILD_DIR)/string.o $(BUILD_DIR)/thread.o $(BUILD_DIR)/list.o\
 		$(BUILD_DIR)/switch.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o\
-		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o
+		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o\
+		$(BUILD_DIR)/process.o 
 
 
 ############################################################
@@ -62,7 +63,7 @@ $(BUILD_DIR)/list.o: lib/kernel/list.c lib/kernel/list.h\
 		kernel/interrupt.h
 	$(CC) $(CFLAGS) $< -o $@
 
-$(BUILD_DIR)/console.o: device/console.c\
+$(BUILD_DIR)/console.o: device/console.c device/console.h\
 		lib/stdint.h lib/kernel/print.h thread/thread.h
 	$(CC) $(CFLAGS) $< -o $@
 
@@ -77,6 +78,15 @@ $(BUILD_DIR)/keyboard.o: device/keyboard.c device/keyboard.h\
 		
 $(BUILD_DIR)/ioqueue.o: device/ioqueue.c device/ioqueue.h\
 		lib/stdint.h thread/thread.h thread/sync.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/tss.o: userprog/tss.c userprog/tss.h\
+		kernel/global.h thread/thread.h lib/kernel/print.h lib/string.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/process.o: userprog/process.c userprog/process.h\
+		kernel/global.h thread/thread.h lib/string.h kernel/interrupt.h\
+		device/console.h userprog/tss.h kernel/debug.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
@@ -124,14 +134,17 @@ hd:
 
 clean:
 	cd $(BUILD_DIR) && rm -f ./*
-	cd $(bin_folder) && (rm -f JackOS.img || true)
+	cd $(bin_folder) && (rm -f JackOS.img || true) && (rm -f JackOS.img.lock || true)
 
 build: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
 
-all: mk_dir build hd
+disasm: $(BUILD_DIR)/kernel.bin
+	objdump -D -m i386:intel $< > $(BUILD_DIR)/kernel.dump
 
-no-gdb: mk_dir build hd
+ll: mk_dir build hd disasm
+
+no-gdb: mk_dir build hd disasm
 	bash $(BUILD_DIR)/../genrc.sh
 
-with-gdb: mk_dir build hd
+with-gdb: mk_dir build hd disasm
 	bash $(BUILD_DIR)/../genrc.sh gdb

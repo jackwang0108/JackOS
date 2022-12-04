@@ -10,3 +10,5 @@ log.bochsrc.disk
 # ignore folder
 build
 tools
+
+document

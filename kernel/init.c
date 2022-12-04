@@ -6,6 +6,7 @@
 #include "thread.h"
 #include "console.h"
 #include "keyboard.h"
+#include "tss.h"
 
 void init_all(void){
     put_str("init_all\n");
@@ -13,6 +14,7 @@ void init_all(void){
     mem_init();                 // 初始化内存管理系统，包括虚拟内存和物理内存
     thread_init();              // 初始化线程，为内核构建主线程
     timer_init();               // 初始化PIT（Programmable Interval Timer）
-    keyboard_init();            // 初始化键盘
     console_init();             // 初始化控制台
+    keyboard_init();            // 初始化键盘
+    tss_init();
 }

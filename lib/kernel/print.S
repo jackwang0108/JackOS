@@ -27,7 +27,7 @@ put_int:
     mov ebx, put_int_buffer
 
     ; int 转 ASCII
-    .16base_4bits:
+    .16based_4bits:
         and edx, 0x0000_000F
         cmp edx, 9
         jg .is_A2F
@@ -37,11 +37,11 @@ put_int:
             sub edx, 10
             add edx, 'A'
         .store:                 ; 存储当前16进制数字
-            mov byte [ebx + edi], dl
+            mov [ebx + edi], dl
             dec edi
             shr eax, 4
             mov edx, eax
-        loop .16base_4bits
+        loop .16based_4bits
     
     ; 打印
     .ready_to_print:
@@ -196,6 +196,8 @@ put_char:
 
         mov esi, 0xB80A0        ; 0xC00B8000 + 80 * 2 = 第1行行首
         mov edi, 0xB8000        ; 第0行行首
+        ; 为什么会发生缺页中断? 
+        ; movsd dword ptr es:[edi], dword ptr ds:[esi]
         rep movsd               ; 重复 3840字节 / 4字节 = 960次
 
         ; 最后一行填充为空白

@@ -341,7 +341,7 @@ setup_page:
     .create_pde:
         mov eax, PAGE_DIR_TABLE_POS     ; PAGE_DIR_TABLE_POS = 0x10_0000
         add eax, 0x1000                 ; 0x1000 = 4096, 页目录占用一个页，后面的就是下一个页
-        mov ebx, eax                    ; 第一个页的地址（不计页目录的也）eax = 0x10_1000
+        mov ebx, eax                    ; 第一个页的地址（不计页目录的页）eax = 0x10_1000
         
         or eax, PG_US_U | PG_RW_W | PG_P        ; 构建页目录项
         mov [PAGE_DIR_TABLE_POS + 0x0], eax     ; 第一个页目录项，指向的页表在0x10_1000，这个页表是第一个页，也是操作系统所在的页

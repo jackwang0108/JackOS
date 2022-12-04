@@ -22,6 +22,7 @@ intr_entry_table:
 %macro VECTOR 2
 section .text
 intr%1entry:
+    ; 下买呢这部分push的内容和intr_stack_t中的内容对应
     %2                              ; 压入error_code
     ; 保存上下文
     push ds
@@ -36,7 +37,7 @@ intr%1entry:
     out 0x20, al                    ; 主片复位
 
     push %1                         ; 传参，压入中断向量号
-    call [idt_table + %1*4]
+    call [idt_table + %1*4]         ; CS:IP在这里改变
     jmp intr_exit
 
 ; 汇编中的 section ，即节，用来定义一段相同属性的数据，该范围起始于当前 section 的定义处，

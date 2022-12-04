@@ -31,7 +31,7 @@ static void frequency_set(uint8_t counter_port, uint8_t counter_no, uint8_t rwl,
     outb(PIT_CONTROL_PORT, (uint8_t) (counter_no << 6 | rwl << 4 | counter_mode << 1));
     // 设置初值
     outb(counter_port, (uint8_t) counter_value);                // 先写入低八位
-    outb(counter_port, (uint8_t) (counter_value >> 8));         // 然后写入高八位
+    outb(counter_port, (uint8_t) counter_value >> 8);         // 然后写入高八位
 }
 
 
@@ -49,10 +49,10 @@ void intr_timer_handler(void){
     // 内核总tick数+1
     ticks++;
 
-    if (cur_thread->this_ticks == 0)
+    if (cur_thread->this_tick == 0)
         schedule();                 // 当前线程的时间片已经用完了，则调度新的进程上CPU
     else
-        cur_thread->this_ticks--;
+        cur_thread->this_tick--;
     
 }
 

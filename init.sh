@@ -40,6 +40,13 @@ if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]
             fi
         fi
         echo 'Downloading cross-compiler...'
+        echo -e "$purple=> nasm$return"
+        if command -v nasm -v > /dev/null 2>&1; then
+            echo 'nasm detection, skipping...'
+        else
+            echo 'nasm not detected, downloading...'
+            sudo apt-get install nasm -y
+        fi
         echo -e "$purple=> gcc-10.4$return"
         if  wget -T 5 -c --quiet --show-progress -P "$shell_folder"/tools/src https://ftp.gnu.org/gnu/gcc/gcc-10.4.0/gcc-10.4.0.tar.gz; then
             echo -e "${green}gcc download success$return"
