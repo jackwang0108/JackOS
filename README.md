@@ -16,9 +16,32 @@ Read the project README in other language: [简体中文](README-zh.md)
 
 
 
-# Usage
+# Target
 
-## preparation
+I want `JackOS` be a 32-bit OS working under text mode (I don't want to **currently** burden myself with graphic/GPU things...) with following features:
+
+- Memory management:
+  - [x] Segmentation
+  - [x] Paging and virtual address
+  - [x] Kernel memory allocation
+  - [ ] User memory allocation
+  
+- Hardware support:
+  - [x] Keyboard
+  - [x] Screen/console
+  - [ ] Mouse
+  - [ ] Hard disk
+- File System:
+  - [ ] Basic `ext2/3` file system
+
+- Concurrency:
+  - [x] Kernel thread
+  - [ ] User thread
+
+
+
+
+# Preparation
 
 `init.sh` is a simple command line tool for initializing and quickly running the JackOS.
 
@@ -44,6 +67,14 @@ bash init.sh -d
 The tool will download cross-compile toolchains for you. **If download failed, remove the download folder by `rm -r <download-folder>`  and re-run `bash init.sh -d` to download.
 
 
+
+![Snipaste_2022-11-28_09-06-28](./.assets/Snipaste_2022-11-28_09-06-28.png)
+
+
+
+
+
+
 After that, run following command to compile and install cross-compile toolchains:
 
 ```sh
@@ -52,20 +83,55 @@ bash init.sh -c
 
 This may take a few minutes. 
 
+![Snipaste_2022-11-28_09-06-47](./.assets/Snipaste_2022-11-28_09-06-47.png)
 
-# Target
-
-What I want JackOS be like are:
-
-- a 32-bit OS working under text mode (I don't want to **currently** burden myself with graphic/GPU things...)
-- use paging to manage physical memory and provide virtual memory management.
-- has a basic `ext` file system, which could offer abstraction like `file`/`path` and etc.
-- can management basic device like keyboard / flash.
-- may be deadlock detection? Like banker's algorithm. I don't know, just probably.
+![Snipaste_2022-11-28_09-12-25](./.assets/Snipaste_2022-11-28_09-12-25.png)
 
 
 
-# Workflow Tools (With explanation)
+
+
+# Quick run
+
+After compiling and installing cross-compile tools, run `make no-gdb` to compile the system.
+
+```shell
+make no-gdb
+```
+
+![image-20221129084822355](./.assets/Snipaste_2022-11-29_09-02-28.png)
+
+
+
+
+
+Then, run `bochs -f bochsrc` to start simulating.
+
+```sh
+bochs -f bochsrc
+```
+
+![image-20221129085233731](./.assets/Snipaste_2022-11-29_09-04-20.png)
+
+
+
+
+
+
+
+
+
+# Hacking JackOS
+
+Detailed infomation about how to hacking `JackOS` is listed below.
+
+![Hack JackOS](.assets/Snipaste_2022-11-29_09-06-21.png)
+
+
+
+
+
+## Workflow Tools (With explanation)
 
 To write, test and debug the kernel, a series of tools are needed. All the tools introduced below are organized according to develop workflow. 
 
@@ -73,9 +139,9 @@ SO, read this section, you will get to know develop workflow of kernel programmi
 
 
 
-## 1. Disk Image
+### 1. Disk Image
 
-### A. Explanation
+#### A. Explanation
 
 A disk is a **physical** collections of cells/block (bits), each cell (bit) can store a bit number, either 0/1.
 
@@ -290,9 +356,19 @@ So, I just choose to use `nasm`, a new (considering `masm` was created in 1970s)
 
 
 
+Run `bash init.sh -d`, it will automatically install `nasm` for you.
+
+
+
 #### 2) C Compiler
 
-Not decided yet, since cross-compile may be needed, so I'm still seeking which C compiler (`gcc`/`clang`) is more easy to cross-compile.
+`i686-elf-gcc` is needed. Run `bash init.sh -c`, to get it.
+
+
+
+### C. Binutils
+
+Finally, you will need a linker like `ld`, or `AT&T` format assembly compiler like `ar`. These binutils you can also get them with `bash init.sh -d`
 
 
 
