@@ -13,7 +13,12 @@
 
 // 目前支持的中断总数，每一个中断都要有一个中断处理程序处理，所以要有对应的中断门
 // 此外，0x1F是CPU保留的中断号（目前只用了19个），从0x20个开始，是给用户使用的
-#define IDT_DESC_CNT 0x30
+#define IDT_DESC_CNT 0x81
+
+/// @brief 系统调用的入口函数, 定义在kernel.S中
+/// @param 无参数
+/// @return uint32_t 系统调用的返回值
+extern uint32_t syscall_handler(void);
 
 
 #define EFLAGS_IF   0x00000200              // eflags寄存器中，if位为1
@@ -68,9 +73,9 @@ static void pic_init(void){
 
 
 /**
- * @brief make_idt_desc用于制作一个中断门
+ * @brief make_idt_desc用于制作一个中断门, 并将其安装到指定位置
  * 
- * @param p_gdesc 中断门
+ * @param p_gdesc 中断门将要安装到的位置, 必须是指向中断描述符表中的一个地址: &idt[XXX]
  * @param attr 中断门属性
  * @param function 中断门指向的函数
  */
@@ -84,12 +89,17 @@ static void make_idt_desc(gate_desc_t *p_gdesc, uint8_t attr, intr_handler funct
 
 
 /**
- * @brief 用于初始化中断描述符表
+ * @brief 用于初始化中断描述符表(中断门表)
  * 
+ * @details idt_desc_init将会:
+ *              1. 初始化一般中断门(中断描述符)idt[i]中的目标代码段地址为intr_entry_table[i]中的地址, 并且将其访问特权级DPL设置为0
+ *              2. 初始化系统中断门的目标代码段地址为syscall_handler, 并将其访问特权级DPL设置为3
  */
 static void idt_desc_init(void){
     for (int i = 0; i < IDT_DESC_CNT; i++)
         make_idt_desc(&idt[i], IDT_DESC_ATTR_DPL0, intr_entry_table[i]);
+    // 系统中断门(中断描述符)DPL是3, 这样用户态的程序才能够通过中断访问该段, 此外, 单
+    make_idt_desc(&idt[IDT_DESC_CNT - 1], IDT_DESC_ATTR_DPL3, syscall_handler);
     put_str("    idt_desc_init done\n");
 }
 

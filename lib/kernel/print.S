@@ -194,8 +194,8 @@ put_char:
         cld
         mov ecx, 960            ; 需要复制 2000 - 80(第0行) = 1920个字符，3840个字节
 
-        mov esi, 0xB80A0        ; 0xC00B8000 + 80 * 2 = 第1行行首
-        mov edi, 0xB8000        ; 第0行行首
+        mov esi, 0xC00B80A0        ; 0xC00B8000 + 80 * 2 = 第1行行首
+        mov edi, 0xC00B8000        ; 第0行行首
         ; 为什么会发生缺页中断? 
         ; movsd dword ptr es:[edi], dword ptr ds:[esi]
         rep movsd               ; 重复 3840字节 / 4字节 = 960次

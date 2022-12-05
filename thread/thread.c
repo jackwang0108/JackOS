@@ -6,18 +6,39 @@
 #include "print.h"
 #include "process.h"
 #include "console.h"
+#include "sync.h"
 
 
-// main_thread是内核的主线程，目前为止都是使用的汇编程序jmp到内核直接运行的
-// 但是未来我们需要使用PCB/TCB来管理线程和进程，因此内核的主线程也将作为一个PCB/TCB参与管理
-// 所以内核要构建的第一个进程就是内核自己，在构建好后，未来直接视为一个正常的线程、进程参与调度即可
+/// @brief next_pid是全局的pid线程池, 每次创建新进程的时候都会+1. 由于是全局共享的数据, 因此需要使用锁来保护
+mutex_t next_pid_lock;                              ///< next_pid的锁
+
+/**
+ * @brief main_thread是内核的主线程，目前为止都是使用的汇编程序jmp到内核直接运行的
+ *      但是未来我们需要使用PCB/TCB来管理线程和进程，因此内核的主线程也将作为一个PCB/TCB参与管理
+ *      所以内核要构建的第一个进程就是内核自己，在构建好后，未来直接视为一个正常的线程、进程参与调度即可
+ */
 task_struct_t *main_thread;
+
 list_t thread_ready_list;                   // 就绪队列
 list_t thread_all_list;                     // 所有进程/线程队列
 list_elem_t *thread_tag;                    // 用于标记当前正在运行中的线程
 
 // 该函数实际上是一个汇编函数，调用的时候C语言会自动帮我们压栈，汇编函数最后我们要清理栈
 extern void switch_to(task_struct_t *cur, task_struct_t *next);
+
+
+/**
+ * @brief allocate_pid用于为内核线程分配PID
+ * 
+ * @return pid_t 线程分配得到的PID
+ */
+static pid_t allocate_pid(void){
+    static pid_t next_pid = 0;
+    mutex_acquire(&next_pid_lock);
+    next_pid++;
+    mutex_release(&next_pid_lock);
+    return next_pid;
+}
 
 
 /**
@@ -138,6 +159,8 @@ void thread_create(task_struct_t* tcb, thread_func function, void *func_arg){
 void init_thread(task_struct_t *tcb, char *name, int time_slice){
     // 内存清0，防止遗留字节造成错误
     memset(tcb, 0, sizeof(*tcb));
+    // 分配PID
+    tcb->pid = allocate_pid();
     strcpy(tcb->name, name);
 
     // 操作系统的主程序也被封装成一个线程，并且就是调度器运行的第一个进程
@@ -298,6 +321,7 @@ void thread_init(void){
     put_str("thread init start\n");
     list_init(&thread_all_list);
     list_init(&thread_ready_list);
+    mutex_init(&next_pid_lock);
     make_main_thread();
     put_str("thread init done\n");
 }

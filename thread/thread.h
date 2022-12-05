@@ -16,11 +16,15 @@
 #include "bitmap.h"
 #include "memory.h"
 
+/// 线程函数的模板
 typedef void thread_func(void*);
+/// 进程或者线程的pid
+typedef uint16_t pid_t;
+
 
 // 定义在thread.c中
-extern list_t thread_ready_list;                   // 就绪队列
-extern list_t thread_all_list;                     // 所有进程/线程队列
+extern list_t thread_ready_list;                   ///< 就绪队列
+extern list_t thread_all_list;                     ///< 所有进程/线程队列
 
 typedef enum __task_status {
     TASK_RUNNING,
@@ -105,6 +109,8 @@ typedef struct __task_struct {
     /* ------------------------------ 内核线程的基本信息 ------------------------------ */
     /// 内核线程TCB的栈顶指针，初始化时候需要被设置为指向页的页尾
     uint32_t *self_kstack;
+    /// 内核线程的PID
+    pid_t pid;
     /// 内核线程TCB的状态
     task_status_t status;
     /// 内核线程TCB的名字

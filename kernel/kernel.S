@@ -22,7 +22,7 @@ intr_entry_table:
 %macro VECTOR 2
 section .text
 intr%1entry:
-    ; 下买呢这部分push的内容和intr_stack_t中的内容对应
+    ; 下面这部分push的内容和intr_stack_t中的内容对应, 保存中断发生时候的上下文
     %2                              ; 压入error_code
     ; 保存上下文
     push ds
@@ -36,8 +36,10 @@ intr%1entry:
     out 0xA0, al                    ; 从片复位
     out 0x20, al                    ; 主片复位
 
-    push %1                         ; 传参，压入中断向量号
+    ; [idt_table + %1*4]的通用格式
+    push %1                         ; 压入中断向量号, 依旧是intr_stack_t的一部分
     call [idt_table + %1*4]         ; CS:IP在这里改变
+    ; idt_table中的硬中断处理函数统一格式都是void xxxx_interrput_handler(void), 所以没有传入参数, 因此也不需要清理
     jmp intr_exit
 
 ; 汇编中的 section ，即节，用来定义一段相同属性的数据，该范围起始于当前 section 的定义处，
@@ -119,3 +121,47 @@ VECTOR 0x2D,ZERO                ; fpu浮点异常
 VECTOR 0x2E,ZERO                ; 硬盘
 VECTOR 0x2F,ZERO                ; 保留
 
+
+
+[bits 32]
+extern syscall_table
+
+section .text
+global syscall_handler
+; 函数 
+; -----------------------------------------------------------
+; syscall_handler  系统调用的int 0x80软中断的入口函数
+; -----------------------------------------------------------
+;   注意, 该函数编译后DPL0是系统代码段, 因此使用的栈是tss肿的ss0:esp0
+;   但是调用该函数的是DPL3的用户代码, 所以用户通过DPL3的系统调用中断门
+;   0x80 访问到这里之后, 就会发生一个DPL3 -> DPL0的转换, 这个时候
+;   CPU会自动发生栈的切换, 从3级栈切换到0级栈
+;
+;   此外, jmp int_exit的时候, 会把压入的pushad, gs, fs, es, ds
+;   全部弹出, 所以eax中的返回值会被覆盖, 因此需要将其保存到栈中,
+;   但是注意, 由于jmp intr_exit中道ret之前都是DPL0, 所以此时eax被
+;   保存到了0级栈中
+; -----------------------------------------------------------
+; 输入:
+;       eax: 系统调用号
+; 无返回值:
+syscall_handler:
+    ; 下面这部分push的内容和intr_stack_t中的内容对应, 保存中断发生时候的上下文
+    push 0                      ; 给error_code压入0
+    push ds
+    push es
+    push fs
+    push gs
+    pushad                      ; 依次压入eax, ecx, edx, ebx, esp, ebp, esi, edi
+
+    ; 因为是CPU内部发出的软中断, 所以不需要像intr%1entry处理8259A一样先对仲裁器进行复位
+    push 0x80                   ; 压入中断向量号, 依旧是intr_stack_t的一部分
+    push edx                    ; 传入第3个参数
+    push ecx                    ; 传入第2个参数
+    push ebx                    ; 传入第1个参数
+    call [syscall_table + eax * 4]
+    add esp, 12                 ; 传了三个参数清理栈
+
+    ; 系统调用的 [syscall_table + eax * 4](arg1, arg2, arg3) 的返回值将存入eax中
+    mov [esp + 8 * 4], eax      ; 这个是二进制编程接口abi的约定
+    jmp intr_exit

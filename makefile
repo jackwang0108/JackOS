@@ -14,7 +14,8 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/string.o $(BUILD_DIR)/thread.o $(BUILD_DIR)/list.o\
 		$(BUILD_DIR)/switch.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o\
 		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o\
-		$(BUILD_DIR)/process.o 
+		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o\
+		$(BUILD_DIR)/stdio.o
 
 
 ############################################################
@@ -87,6 +88,19 @@ $(BUILD_DIR)/tss.o: userprog/tss.c userprog/tss.h\
 $(BUILD_DIR)/process.o: userprog/process.c userprog/process.h\
 		kernel/global.h thread/thread.h lib/string.h kernel/interrupt.h\
 		device/console.h userprog/tss.h kernel/debug.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/syscall.o: lib/user/syscall.c lib/user/syscall.h\
+		lib/stdint.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/syscall-init.o: userprog/syscall-init.c userprog/syscall-init.h\
+		lib/stdint.h thread/thread.h lib/kernel/print.h lib/user/syscall.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/stdio.o: lib/stdio.c lib/stdio.h\
+		lib/stdint.h kernel/global.h lib/string.h\
+		lib/user/syscall.h
 	$(CC) $(CFLAGS) $< -o $@
 
 
