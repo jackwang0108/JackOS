@@ -95,6 +95,7 @@
             "label": "clear-bochs-remains",
             "command": "rm",
             "args": [
+                "-f",
                 "${workspaceFolder}/JackOS.img.lock"
             ],
             "dependsOn": "kill-bochs"

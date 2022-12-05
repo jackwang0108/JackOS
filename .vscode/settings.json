@@ -6,7 +6,17 @@
         "thread.h": "c",
         "global.h": "c",
         "interrupt.h": "c",
-        "list.h": "c"
+        "list.h": "c",
+        "sync.h": "c",
+        "io.h": "c",
+        "ioqueue.h": "c",
+        "memory.h": "c",
+        "bitmap.h": "c",
+        "process.h": "c",
+        "console.h": "c",
+        "userprog.h": "c",
+        "syscall.h": "c",
+        "syscall-init.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
