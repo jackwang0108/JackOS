@@ -4,7 +4,7 @@ shell_folder=$(cd "$(dirname "$0")" || exit; pwd)
 export PREFIX="$shell_folder"/tools
 export TARGET=i686-elf
 export PATH="$PREFIX/bin:$PATH"
-export BXSHARE="$PREFIX/tool/"
+export BXSHARE="$PREFIX/share/bochs"
 
 purple="\e[35m"
 green="\e[32m"
@@ -13,7 +13,7 @@ return='\e[0m'
 
 
 if [[ $1 = '-h' ]] || [[ $1 = '--help' ]]; then
-    echo "Init tools for downloading, compiling, installing debugger and corss-compile toolchain of JackOS, created by Jack Wang"
+    echo "Init tools for downloading, compiling, installing debugger and corss-compile tool-chain of JackOS, created by Jack Wang"
     echo 'Options:'
     echo '    -h, --help                Show this help message'
     echo '    -d, --download            Download toolchain'
