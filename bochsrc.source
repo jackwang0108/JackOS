@@ -10,8 +10,8 @@ megs: 32
 # 第二步，设置对应真实机器的BIOS和VGA BIOS.
 # 对应两个关键字为：romimage 和 vgaromimage
 
-# LINUX: romimage: file=/usr/local/share/bochs/BIOS-bochs-latest
-# LINUX: vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
+# LINUX: romimage: file=$BXSHARE/BIOS-bochs-latest
+# LINUX: vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
 
 # MACOS: romimage: file=/opt/homebrew/share/bochs/BIOS-bochs-latest
 # MACOS: vgaromimage: file=/opt/homebrew/share/bochs/VGABIOS-lgpl-latest
