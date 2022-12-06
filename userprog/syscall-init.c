@@ -34,6 +34,24 @@ uint32_t sys_write(char *str){
 
 
 /**
+ * @brief sys_malloc是malloc系统调用的实现函数, 用于在当前进程的堆中申请size个字节的内存, 定义在memory.c中
+ * 
+ * @details 开启虚拟内存以后, 只有真正的分配物理页, 在页表中添加物理页和虚拟页的映射才会接触到物理页,
+ *          除此以外所有分配内存, 分配的都是虚拟内存
+ * 
+ * @param size 要申请的内存字节数
+ * @return void* 若分配成功, 则返回申请得到的内存的首地址; 失败则返回NULL
+ */
+extern void* sys_malloc(uint32_t size);
+
+/**
+ * @brief sys_free用于释放sys_malloc分配的内存. 定义在memory.c中
+ * 
+ * @param ptr 指向由sys_malloc分配的物理内存
+ */
+extern void sys_free(void* ptr);
+
+/**
  * @brief syscall_init 用于初始化系统调用, 即在syscall_table中注册各个系统调用
  * 
  * @details 目前已经注册的系统调用有:
@@ -44,5 +62,7 @@ void syscall_init(void){
     put_str("syscall_init start\n");
     syscall_table[SYS_GETPID] = sys_getpid;
     syscall_table[SYS_WRITE] = sys_write;
+    syscall_table[SYS_MALLOC] = sys_malloc;
+    syscall_table[SYS_FREE] = sys_free;
     put_str("syscall_init done\n");
 }
