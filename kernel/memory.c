@@ -4,6 +4,7 @@
 #include "debug.h"
 #include "string.h"
 #include "sync.h"
+#include "interrupt.h"
 // memory是系统的内存管理模块，因此需要先规划系统的物理内存
 
 // 内核运行时需要1G的物理内存，剩下3G物理内存是用户程序，由于有内存分页，因此物理内存中不必连续，虚拟内存中连续即可
@@ -76,12 +77,19 @@ typedef struct __pool_t {
 
 
 
-pool_t kernel_pool, user_pool;          // 内核内存池和用户内存池
-virtual_addr_t kernel_vaddr;             // 用于管理内核虚拟地址
+pool_t kernel_pool, user_pool;           /// 内核内存池和用户内存池
+virtual_addr_t kernel_vaddr;             /// 用于管理内核虚拟地址
 
+/// 内核不同大小内存单元的售货窗口
+mem_block_desc_t k_block_descs[MEM_UNIT_CNT];
 
 /**
  * @brief mem_pool_init用于初始化内存池
+ * 
+ * @details 该函数干的事情:
+ *              1. 初始化用户使用的物理内存Bitmap
+ *              2. 初始化内核使用的物理内存Bitmap
+ *              3. 初始化内核使用的虚拟内存Bitmap
  * 
  * @param all_mem 当前系统的内存数，以字节为单位
  */
@@ -153,12 +161,20 @@ static void mem_pool_init(uint32_t all_mem){
 
 
 /**
- * @brief mem_init用于初始化内存
+ * @brief mem_init用于初始化系统的内存
+ * 
+ * @details mem_init干的事:
+ *              1. 初始化系统级内存管理系统:
+ *                  1.1 初始化内核使用的物理内存Bitmap
+ *                  1.2 初始化用户使用的物理内存Bitmap
+ *                  1.3 初始化内核使用的虚拟内存Bitmap
+ *              2. 初始化线程级内存管理系统
  */
 void mem_init(){
     put_str("mem_init start\n");
     uint32_t mem_byte_total = (*(uint32_t*) (0xb00));           // loader.S中获取了系统当前的内存，保存在0xb00中，现在获取该值
     mem_pool_init(mem_byte_total);
+    block_desc_init(k_block_descs);
     put_str("mem_init done\n");
 }
 
@@ -327,6 +343,133 @@ uint32_t addr_v2p(uint32_t vaddr){
 }
 
 
+
+/**
+ * @brief pfree(Physical Free)用于将给定的物理地址所属于的页回收到物理内存池
+ * 
+ * @details 由于使用Bitmap的方式管理物理内存, 而Bitmap中一位表示4K大小的内存, 即一个页.
+ *          而回收本质上就是把对应页在bitmap中的占用位的清0即可. 这样做一方面减小了开销, 
+ *          但是却造成了内存泄露的问题, 所以在用户申请一个页的时候, 需要memset清0
+ * 
+ * @param pg_phy_addr 
+ */
+void pfree(uint32_t pg_phy_addr){
+    pool_t *mem_pool;
+    uint32_t bit_idx = 0;
+    if (user_pool.phy_addr_start <= pg_phy_addr){
+        mem_pool = &user_pool;
+        bit_idx = (pg_phy_addr - user_pool.phy_addr_start) / PG_SIZE;
+    } else {
+        mem_pool = &kernel_pool;
+        bit_idx = (pg_phy_addr - kernel_pool.phy_addr_start) / PG_SIZE;
+    }
+    bitmap_set(&mem_pool->pool_bitmap, bit_idx, 0);
+}
+
+
+/**
+ * @brief page_table_pte_remove用于将vaddr指向的虚拟内存地址所在的虚拟页从对应的页表中取消和物理页的映射
+ * 
+ * @param vaddr 要取消映射的虚拟地址
+ */
+static void page_table_pte_remove(uint32_t vaddr){
+    uint32_t *pte = pte_addr(vaddr);
+    *pte &= ~PG_P_1;
+    // invlpg update tlb
+    asm volatile (
+        "invlpg %0"
+        : 
+        : "m" (vaddr)
+        : "memory"
+    );
+}
+
+
+/**
+ * @brief vaddr_remove用于在虚拟内存池中释放_vaddr开始的连续pg_cnt个页
+ * 
+ * @param pf 释放的内存池
+ * @param _vaddr 开始释放的页的地址
+ * @param pg_cnt 释放的页数
+ */
+static void vaddr_remove(pool_flags_t pf, void* _vaddr, uint32_t pg_cnt){
+    uint32_t bit_idx_start = 0;
+    uint32_t vaddr = (uint32_t) _vaddr;
+    uint32_t cnt = 0;
+
+    if (pf == PF_KERNEL){
+        // release from kernel virtual memory
+        bit_idx_start = (vaddr - kernel_vaddr.vaddr_start) / PG_SIZE;
+        while (cnt < pg_cnt)
+            bitmap_set(&kernel_vaddr.vaddr_bitmap, bit_idx_start + cnt++, 0);
+    } else {
+        // release from user virtual memory
+        task_struct_t *cur = running_thread();
+        bit_idx_start = (vaddr - cur->userprog_vaddr.vaddr_start) / PG_SIZE;
+        while (cnt < pg_cnt)
+            bitmap_set(&cur->userprog_vaddr.vaddr_bitmap, bit_idx_start + cnt++, 0);
+    }
+}
+
+
+/**
+ * @brief mfree_page将释放以虚拟地址vaddr所在的物理页为起始的pg_cnt个物理页.
+ *      注意, 此函数将按照整页整页的形式释放内存
+ * 
+ * @param pf 要释放的内存池
+ * @param _vaddr 要释放的
+ * @param pg_cnt 要释放的物理页的数量
+ */
+void mfree_page(pool_flags_t pf, void *_vaddr, uint32_t pg_cnt){
+    uint32_t pg_phy_addr;
+    uint32_t vaddr = (int32_t) _vaddr;
+    uint32_t page_cnt = 0;
+
+    // 对vaddr进行合法性检查
+    // 要释放的页必须要大于等于1页, vaddr也必须指向虚拟页开始
+    ASSERT(pg_cnt >= 1 && vaddr % PG_SIZE == 0);
+    pg_phy_addr = addr_v2p(vaddr);
+    // 要释放的物理页必须是整数, 此外不能释放: 底端1MB的内核, 0x100000~0x101000的页目录表, 0x101000~0x102000的第一个页表
+    ASSERT((pg_phy_addr % PG_SIZE == 0) && pg_phy_addr >= 0x102000);
+    
+    // 释放vaddr执行的内存要干的三件事
+    //      1. 释放vaddr所在的物理页
+    //      2. 释放vaddr所在的虚拟页
+    //      3. 在页表中释放虚拟页和物理页的映射
+    vaddr -= PG_SIZE;
+    if (pg_phy_addr >= user_pool.phy_addr_start) {
+        // 释放用户物理内存池
+        while (page_cnt++ < pg_cnt){
+            vaddr += PG_SIZE;
+            pg_phy_addr = addr_v2p(vaddr);
+            ASSERT((pg_phy_addr % PG_SIZE == 0) && user_pool.phy_addr_start <= pg_phy_addr);
+
+            // 先释放物理页
+            pfree(pg_phy_addr);
+            // 稍后统一释放虚拟页
+
+            // 清除虚拟页和物理页的映射
+            page_table_pte_remove(vaddr);
+        }
+        // 统一释放虚拟页
+        vaddr_remove(pf, _vaddr, pg_cnt);
+    } else {
+        while (page_cnt++ < pg_cnt){
+            vaddr += PG_SIZE;
+            pg_phy_addr = addr_v2p(vaddr);
+            ASSERT((pg_phy_addr % PG_SIZE == 0) && kernel_pool.phy_addr_start <= pg_phy_addr && pg_phy_addr < user_pool.phy_addr_start)
+
+            // 先释放物理页
+            pfree(pg_phy_addr);
+            // 稍后统一释放虚拟页
+
+            // 清除虚拟页和物理页的映射
+            page_table_pte_remove(vaddr);
+        }
+        vaddr_remove(pf, _vaddr, pg_cnt);
+    }
+}
+
 /* ================================================================================================================== */
 /* ================================================== 内核分配一个页 ================================================== */
 /* ================================================================================================================== */
@@ -433,3 +576,224 @@ void* get_user_pages(uint32_t pg_cnt){
     return vaddr;
 }
 
+
+
+/* ================================================================================================================== */
+/* ============================================== Arena细粒度内存管理模块 ============================================== */
+/* ================================================================================================================== */
+
+
+
+/**
+ * @brief arena是存储某一类型内存单元的容器, 即例如uint16_t是250ml农夫山泉, 对应的arena就是一个装满250ml农夫山泉的箱子
+ *          此外, arena使用链表管理小内存块, 而大内存块直接作为整体
+ * 
+ * @details 类似于task_sturct结构本身只有几十个字节, 但是在创建的时候却是每次创建一个task_struct_t, 都会分配一个物理页,
+ *          而后task_struct初始化在该页的顶部, 而task_struct内部会有一个指针来管理该页.
+ *          同样, 后面每次创建一个arena, 都会分配一个或者多个物理页, 而后arena将位于第一个物理页的前面, 以管理所有的内存
+ */
+typedef struct __arena_t {
+    /// @brief 小内存块链表
+    mem_block_desc_t *desc;
+    /// @brief 当前内存仓库空闲的mem_block数
+    uint32_t free_cnt;
+    /// @brief 是否为大内存块arena
+    bool large;
+} arena_t;
+
+
+/**
+ * @brief block_desc_init用于初始化mem_block_desc_t
+ * @param desc_array 指向将要初始化的mem_block_desc_t的指针
+ */
+void block_desc_init(mem_block_desc_t *desc_array){
+    uint16_t desc_idx, block_size = 16;
+
+    // 初始化每种大小的内存块的收货窗口
+    for (desc_idx = 0; desc_idx < MEM_UNIT_CNT; desc_idx++, block_size *= 2){
+        // 该售货窗口中售出的内存块的大小
+        desc_array[desc_idx].block_size = block_size;
+        // 该售货窗口中可售出的内存块的数量
+        desc_array[desc_idx].blocks_per_arena = (PG_SIZE - sizeof(arena_t)) / block_size;
+        // 初始化链表
+        list_init(&desc_array[desc_idx].free_list);
+    }
+}
+
+/**
+ * @brief arena2block用于给定arena, 返回其中第idx个内存块的地址
+ * 
+ * @param a 要获取内存块地址的arena
+ * @param idx 要获得的内存的idx
+ * @return mem_block_t 指向获得的内存块的指针
+ */
+static mem_block_t* arena2block(arena_t *a, uint32_t idx){
+    return (mem_block_t *) ((uint32_t)a + sizeof(arena_t) + idx * a->desc->block_size);
+}
+
+
+/**
+ * @brief block2arena用于给定内存块的地址, 返回内存块所属的arena的地址
+ * 
+ * @details 因为aren位于该页的最前面, 所以直接返回页地址即可
+ * 
+ * @param b 指向要获得arena地址的内存块的指针
+ * @return arena_t* 内存块的地址
+ */
+static arena_t* block2arena(mem_block_t *b){
+    return (arena_t *) ((uint32_t)b & 0xFFFFF000);
+}
+
+
+/**
+ * @brief sys_malloc是malloc系统调用的实现函数, 用于在当前进程的堆中申请size个字节的内存
+ * 
+ * @details 开启虚拟内存以后, 只有真正的分配物理页, 在页表中添加物理页和虚拟页的映射才会接触到物理页,
+ *          除此以外所有分配内存, 分配的都是虚拟内存
+ * 
+ * @param size 要申请的内存字节数
+ * @return void* 若分配成功, 则返回申请得到的内存的首地址; 失败则返回NULL
+ */
+void* sys_malloc(uint32_t size){
+    pool_flags_t pf;
+    pool_t *mem_pool;
+    uint32_t pool_size;
+    mem_block_desc_t *descs;
+    task_struct_t * cur = running_thread();
+
+    // 判断是哪类线程
+    if (cur->pgdir == NULL){
+        // 内核线程
+        pf = PF_KERNEL;
+        mem_pool = &kernel_pool;
+        pool_size = kernel_pool.pool_size;
+        descs = k_block_descs;
+    } else {
+        // 用户线程的内存池中分配内存
+        pf = PF_USER;
+        mem_pool = &user_pool;
+        pool_size = user_pool.pool_size;
+        descs = cur->u_block_desc;
+    }
+
+    // 申请的内存数量不合法
+    if (size <= 0 || pool_size <= size)
+        return NULL;
+
+    arena_t *a;
+    mem_block_t *b;
+    // 下面要动共享数据了, 所以提前上锁
+    mutex_acquire(&mem_pool->mutex);
+
+    if (size > 1024){
+        // 超过最大1024字节的mem_block_desc, 直接分配整个页
+        uint32_t page_cnt = DIV_CEILING(size + sizeof(arena_t), PG_SIZE);
+        if ((a = malloc_page(pf, page_cnt)) == NULL){
+            // 分配失败, 释放锁, 直接放回
+            mutex_release(&mem_pool->mutex);
+            return NULL;
+        }
+        memset(a, 0, page_cnt * PG_SIZE);
+
+        a->desc = NULL;
+        a->free_cnt = page_cnt;
+        a->large = true;
+        // 分配完毕, 释放锁
+        mutex_release(&mem_pool->mutex);
+
+        return (void*) (a + 1);
+    } else {
+        // 从小内存池中分配内存
+        uint8_t desc_idx;
+        for (desc_idx = 0; desc_idx < MEM_UNIT_CNT; desc_idx++)
+            if (size <= descs[desc_idx].block_size)
+                break;
+    
+        // 若mem_block_desc的free_list中已经没有可用的mem_block, 则创建新的arena提供mem_block
+        if (list_empty(&descs[desc_idx].free_list)){
+            if ((a = malloc_page(pf, 1)) == NULL){
+                mutex_release(&mem_pool->mutex);
+                return NULL;
+            }
+            // 初始化arena
+            memset(a, 0, PG_SIZE);
+            a->desc = &descs[desc_idx];
+            a->large = false;
+            a->free_cnt = descs[desc_idx].blocks_per_arena;
+
+            // 下面将arena拆分成内存块, 即将内存块链接到链表中, 必须要关中断
+            intr_status_t old_status = intr_disable();
+            for (uint32_t block_idx = 0; block_idx < descs[desc_idx].blocks_per_arena; block_idx++){
+                b = arena2block(a, block_idx);
+                ASSERT(!elem_find(&a->desc->free_list, &b->free_elem));
+                list_append(&a->desc->free_list, &b->free_elem);
+            }
+            intr_set_status(old_status);
+        }
+
+        // 开始分配内存
+        b = elem2entry(mem_block_t, free_elem, list_pop(&(descs[desc_idx].free_list)));
+        memset(b, 0, descs[desc_idx].block_size);
+
+        a = block2arena(b);
+        a->free_cnt--;
+        mutex_release(&mem_pool->mutex);
+        return (void*) b;
+    }
+}
+
+
+/**
+ * @brief sys_free用于释放sys_malloc分配的内存
+ * 
+ * @param ptr 指向由sys_malloc分配的物理内存
+ */
+void sys_free(void* ptr){
+    ASSERT(ptr != NULL);
+
+    // ASSERT是一个宏, 所以如果在debug.h中开启了NODEBUG宏, 就不会进行检查
+    if (ptr != NULL){
+        pool_flags_t PF;
+        pool_t *mem_pool;
+
+        if (running_thread()->pgdir == NULL){
+            // 释放内核线程的堆
+            ASSERT((uint32_t)ptr >= K_HEAP_START);
+            PF = PF_KERNEL;
+            mem_pool = &kernel_pool;
+        } else {
+            // 释放用户线程的堆
+            PF = PF_USER;
+            mem_pool = &user_pool;
+        }
+
+        // 下面要操作共享数据了, 所以需要锁来保护
+        mutex_acquire(&mem_pool->mutex);
+
+        mem_block_t *b = ptr;
+        arena_t *a = block2arena(b);
+
+        ASSERT(a->large == 0 || a->large == 1)
+    
+        if (a->desc == NULL && a->large == 1)
+            // 大于1024字节的内存是直接按照页的形式分配的, 释放的时候也要按照页的形式释放
+            mfree_page(PF, a, a->free_cnt);
+        else {
+            // 小于1024字节的内存是按照单元的形式分配的, 释放的时候首先为该内存建立节点, 然后加入到空闲链表中
+            list_append(&a->desc->free_list, &b->free_elem);
+
+            // 再判断管理该页的arena是否空闲, 如果空闲就直接释放arena
+            if (++a->free_cnt == a->desc->blocks_per_arena){
+                // 依次释放该Arena中的全部mem_block
+                for (uint32_t block_idx = 0; block_idx < a->desc->blocks_per_arena; block_idx++){
+                    mem_block_t *b = arena2block(a, block_idx);
+                    ASSERT(elem_find(&a->desc->free_list, &b->free_elem));
+                    list_remove(&b->free_elem);
+                }
+                // 释放arena所在的页
+                mfree_page(PF, a, 1);
+            }
+        }
+        mutex_release(&mem_pool->mutex);
+    }
+}

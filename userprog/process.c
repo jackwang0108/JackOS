@@ -146,13 +146,14 @@ void create_user_vaddr_bitmap(task_struct_t *user_prog){
  * @param name 要创建的用户进程的名字
  */
 void process_execute(void *filename, char *name){
-    // 初始化内核线程
+    // 初始化用户进程对应的内核线程
     task_struct_t *tcb = get_kernel_pages(1);
     init_thread(tcb, name, default_time_slice);
     create_user_vaddr_bitmap(tcb);
     // schedule调度的时候, 实际上运行的第一个命令就是start_process(filename)
     thread_create(tcb, start_process, filename);
     tcb->pgdir = create_page_dir();
+    block_desc_init(tcb->u_block_desc);
 
     // 操作共享变量，必须要保证操作的原子性
     intr_status_t old_status = intr_disable();
