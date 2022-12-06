@@ -23,15 +23,15 @@ int main(void){
     put_str("In kernel now, start happy c time!\n");
     init_all();
 
-    // use function to simulate user program
+    // 用户进程调用系统调用
     process_execute(u_prog_a, "user_prog_a");
     process_execute(u_prog_b, "user_prog_b");
 
-    // enable interrupt, so that 9253 timer functions and schedule() start to schedule user program
+    // 开中断, 使得时钟中断可以运行, 从而能够开始运行线程调度
     intr_enable();
     console_put_str("main_pid: 0x"), console_put_int(sys_getpid()), console_put_char('\n');
 
-    // kernel thread
+    // 内核线程输出用户进程pid
     thread_start("k_thread_a", 31, k_thread_a, "argA ");
     thread_start("k_thread_b", 31, k_thread_b, "argB ");
     while(1);
@@ -40,26 +40,103 @@ int main(void){
 
 void k_thread_a(void *arg){
     char* para = (char *)arg;
-    console_put_str("thread_a_pid: 0x"), console_put_int(sys_getpid()), console_put_char('\n');
-    while(1);
-}
 
-void u_prog_a(void){
-    char *name = "prog_a";
-    printf("I am %s, my pid: 0x%x%c", name, getpid(), '\n');
-    while (1);
+    void *addrs[7];
+    console_put_str("thread a_start\n");
+    int max = 1000;
+    while (max-- > 0){
+        int i, size;
+        // alloc test 1
+        for (i = 0, size = 128; i < 4; i++, size *= 2){
+            addrs[i] = sys_malloc(size);
+            if (i == 2)
+                sys_free(addrs[i]);
+        }
+        // alloc test 2
+        size <<= 7;                     // equals to size *= 2 * 2 * 2 * 2 * 2 * 2 * 2
+        addrs[i++] = sys_malloc(size);
+        addrs[i++] = sys_malloc(size);
+        sys_free(addrs[i - 1]);          // i = 5
+
+        // alloc test 3
+        size *= 2;
+        addrs[i++] = sys_malloc(size);
+
+        // release all
+        while(i-- > 0 && i != 2 && i != 5)
+            sys_free(addrs[i]);
+    }
+    console_put_str("thread a_ends\n");
+    while(1);
 }
 
 void k_thread_b(void *arg){
     char* para = (char *)arg;
-    console_put_str("thread_b_pid: 0x"), console_put_int(sys_getpid()), console_put_char('\n');
+    void *addrs[9];
+    int max = 1000;
+    console_put_str("thread b_start\n");
+    while (max-- > 0){
+        int i = 0, size = 9;
+        // alloc test 1
+        for (i = 0; i < 2; i++, size *= 2)
+            addrs[i] = sys_malloc(size);
+        sys_free(addrs[i - 1]);              // i = 1
+
+        // alloc test 2
+        addrs[i++] = sys_malloc(size);
+        sys_free(addrs[0]);                  // i = 0
+        
+        // alloc test 3
+        for (; i < 6; i++)
+            addrs[i] = sys_malloc(size);
+        sys_free(addrs[4]);                  // i = 4
+
+        // alloc test 4
+        addrs[6] = sys_malloc((size*=2));
+        sys_free(addrs[2]);
+        sys_free(addrs[3]);
+        sys_free(addrs[6]);
+        sys_free(addrs[5]);
+
+        // alloc test 5
+        size <<= 3;
+        for (i = 0; i < 9; i++)
+            addrs[i] = sys_malloc(size);
+
+        for (i = 0; i < 9; i++)
+            sys_free(addrs[i]);
+    }
+    console_put_str("thread_b end\n");
     while(1);
 }
 
 
 
+void u_prog_a(void){
+    void *vaddrs[3] = {
+        malloc(256),
+        malloc(255),
+        malloc(254)
+    };
+    printf("prog_a_malloc addr: 0x%x, 0x%x, 0x%x\n", (void*)vaddrs[0], (void*)vaddrs[1], (void*)vaddrs[2]);
+    int delay = 1e5;
+    while (delay-- > 0);
+    for (int i = 0; i < 3; i++)
+        free(vaddrs[i]);
+    while (1);
+}
+
+
 void u_prog_b(void){
-    char *name = "prog_b";
-    printf("I am %s, my pid: 0x%d%c", name, getpid(), '\n');
-    while(1);
+    void *vaddrs[3] = {
+        malloc(256),
+        malloc(255),
+        malloc(254)
+    };
+    printf("prog_b_malloc addr: 0x%x, 0x%x, 0x%x\n", (void*)vaddrs[0], (void*)vaddrs[1], (void*)vaddrs[2]);
+    int delay = 1e5;
+    while (delay-- > 0);
+    for (int i = 0; i < 3; i++)
+        free(vaddrs[i]);
+    while (1);
 }
