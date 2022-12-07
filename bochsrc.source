@@ -40,6 +40,7 @@ mouse: enabled=0
 
 # 硬盘设置 
 ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
-ata0-master: type=disk, path="PATH", mode=flat, cylinders=CYLINDERS, heads=HEADS, spt=SPT
+ata0-master: type=disk, path="KPATH", mode=flat, cylinders=KCYLINDERS, heads=KHEADS, spt=KSPT
+ata0-slave: type=disk, path="FSPATH", mode=flat, cylinders=FSCYLINDERS, heads=FSHEADS, spt=FSSPT
 
 # GDB: gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
