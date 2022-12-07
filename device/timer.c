@@ -13,8 +13,33 @@
 #define COUNTER_MODE                2
 #define READ_WRITE_LATCH            3
 #define PIT_CONTROL_PORT            0x43
+#define msec_per_tick               (1000 / IRQ0_FREQUENCY)
 
 uint32_t ticks;                     // ticks是自从内核开始运行后，开启中断以来总的tick数
+
+
+/**
+ * @brief ticks_to_sleep用于实现tick级别的睡眠
+ * 
+ * @param sleep_ticks tick级别的睡眠
+ */
+static void ticks_to_sleep(uint32_t sleep_ticks){
+    uint32_t start_tick = ticks;
+    while (ticks - start_tick < sleep_ticks)
+        thread_yield();
+}
+
+
+/**
+ * @brief mtime_sleep用于以毫秒为单位进行睡眠, 1s = 1000ms
+ * 
+ * @param m_seconds 需要睡眠的毫秒数
+ */
+void mtime_sleep(uint32_t m_seconds){
+    uint32_t sleep_ticks = DIV_CEILING(m_seconds, msec_per_tick);
+    ASSERT(sleep_ticks > 0);
+    ticks_to_sleep(ticks);
+}
 
 
 /**
