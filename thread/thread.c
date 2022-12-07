@@ -19,6 +19,9 @@ mutex_t next_pid_lock;                              ///< next_pid的锁
  */
 task_struct_t *main_thread;
 
+/// @brief 由于种种原因, 系统当前可能没有一个正在运行的线程(内核main)正在等待io, 此时需要运行一个idle线程
+task_struct_t *idle_thread;
+
 list_t thread_ready_list;                   // 就绪队列
 list_t thread_all_list;                     // 所有进程/线程队列
 list_elem_t *thread_tag;                    // 用于标记当前正在运行中的线程
@@ -56,6 +59,22 @@ task_struct_t *running_thread(void){
     // 目前假设一个进程不会超过一个页，所以取当前虚拟地址的高20位，即为当前虚拟页
     // 而当前虚拟页前半部分存储的就是线程的PCB
     return (task_struct_t *) (esp & 0xFFFFF000);
+}
+
+
+
+static void idle(UNUSED void *unused_arg){
+    while (1){
+        thread_block(TASK_BLOCKED);
+        // 运行不到下面这句话
+        asm volatile (
+            "sti;"
+            "hlt"
+            :
+            :
+            : "memory"
+        );
+    }
 }
 
 
@@ -284,6 +303,21 @@ void thread_unblock(task_struct_t *tcb){
 
 
 /**
+ * @brief thread_yield用于放弃CPU, 和thread_block中线程被动放弃CPU不同, thread_yield表示线程主动放弃CPU
+ *        因此线程的状态被设置为TRHEAD_READY, 而非THREAD_BLOCKED
+ */
+void thread_yield(void){
+    task_struct_t *cur = running_thread();
+    intr_status_t old_status = intr_disable();
+    ASSERT(!elem_find(&thread_ready_list, &cur->general_tag));
+    list_append(&thread_ready_list, &cur->general_tag);
+    cur->status = TASK_READY;
+    schedule();
+    intr_set_status(old_status);
+}
+
+
+/**
  * @brief schedule用于进行一次进程调度
  * 
  * @note schedule被调用的地方一个是在timer_interrupt中，timer_interrupt中会检查进程的时间片是否用完了，
@@ -306,9 +340,13 @@ void schedule(void){
     } else {
         // 留空
     }
-    // 从就绪队列中获得一个进程，而后将其放上CPU进行运行
+    // 从就绪队列中获得一个进程，而后将其放上CPU进行运行, 如果没有则运行idle线程
     // 这里只是改变进程的状态，前一个进程的现场保护、把下一个线程保存的现场调入CPU都是switch里面干的活
-    ASSERT(!list_empty(&thread_ready_list));                    // 此时就绪队列一定不能为空
+    if(list_empty(&thread_ready_list))
+        // 就绪队列为空, 唤醒idle
+        thread_unblock(idle_thread);
+
+    ASSERT(!list_empty(&thread_ready_list))
     thread_tag = NULL;
     thread_tag = list_pop(&thread_ready_list);
     task_struct_t *next = elem2entry(task_struct_t, general_tag, thread_tag);
@@ -323,5 +361,6 @@ void thread_init(void){
     list_init(&thread_ready_list);
     mutex_init(&next_pid_lock);
     make_main_thread();
+    idle_thread = thread_start("idle", 10, idle, NULL);
     put_str("thread init done\n");
 }
