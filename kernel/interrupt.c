@@ -60,13 +60,18 @@ static void pic_init(void){
     outb(PIC_S_DATA, 0x02);                     // ICW3: 从片接到主片IR2引脚
     outb(PIC_S_DATA, 0b00000001);               // ICW4: 8086，正常EOI
 
-    // 打开主片IR0，开启时钟中断、键盘中断，为调度做准备
-    outb(PIC_M_DATA, 0b11111110);
-    outb(PIC_S_DATA, 0b11111111);
-
-    // // 测试键盘，之打开主片IR1，开启键盘中断，为输入做准备
-    // outb(PIC_M_DATA, 0b11111110);
-    // outb(PIC_S_DATA, 0b11111111);
+    /*
+     *  打开主片:
+     *      1. IR0, 开启时钟中断
+     *      2. IR1, 键盘中断
+     *      3. IR2, 级联从片, 8259A从片的中断是由8259A主片帮忙向处理器传达的, 
+     *         8259A从片是级联在8259A主片的IRQ2接口的, 因此为了让处理器也响应来自8259A从片的中断,
+     *         主片屏蔽中断寄存器必须也把IRQ2打开
+     *  打开从片:
+     *      1. IRQ14, 硬盘控制器中断
+    */
+    outb(PIC_M_DATA, 0b11111000);
+    outb(PIC_S_DATA, 0b10111111);
 
     put_str("    pic_init done\n");
 }
