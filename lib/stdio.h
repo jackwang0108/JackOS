@@ -6,6 +6,13 @@
 /// @brief va_list (variable argument)与可变参数宏va_start, va_arg, va_end配合
 typedef char* va_list;
 
+/// @brief va_start用于将ap(argument pointer)指向第一个固定参数v, ap本质是指向参数的指针char*
+#define va_start(ap, v) ap = (va_list) &v
+/// @brief va_arg用于将ap(argument pointer)指向类型为t的下一个参数
+#define va_arg(ap, t) *((t*)(ap += 4))
+/// @brief va_end用于清除ap(argument pointer)
+#define va_end(ap) ap = NULL
+
 /**
  * @brief itoa (integer to ascii)用于将整形value转为字符串(ascii), 并存入buf_ptr_addr指向的内存中
  * 

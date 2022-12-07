@@ -15,7 +15,7 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/switch.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o\
 		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o\
 		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o\
-		$(BUILD_DIR)/stdio.o
+		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o
 
 
 ############################################################
@@ -103,6 +103,10 @@ $(BUILD_DIR)/stdio.o: lib/stdio.c lib/stdio.h\
 		lib/user/syscall.h
 	$(CC) $(CFLAGS) $< -o $@
 
+$(BUILD_DIR)/kstdio.o: lib/kernel/kstdio.c lib/kernel/kstdio.h\
+		lib/stdio.h device/console.h
+	$(CC) $(CFLAGS) $< -o $@
+
 
 ############################################################
 ###################### 编译汇编文件 ##########################
@@ -139,6 +143,8 @@ bin_folder=$(BUILD_DIR)/..
 hd:
 	dd if=/dev/zero of=$(bin_folder)/JackOS.img \
 		bs=512 seek=0 conv=notrunc count=100000
+	dd if=/dev/zero of=$(bin_folder)/JackOS-fs.img \
+		bs=512 seek=0 conv=notrunc count=165000
 	dd if=$(BUILD_DIR)/mbr.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=0 conv=notrunc
 	dd if=$(BUILD_DIR)/loader.bin of=$(bin_folder)/JackOS.img \
@@ -161,4 +167,10 @@ no-gdb: mk_dir build hd disasm
 	bash $(BUILD_DIR)/../genrc.sh
 
 with-gdb: mk_dir build hd disasm
-	bash $(BUILD_DIR)/../genrc.sh gdb
+	bash $(BUILD_DIR)/../genrc.sh -g
+
+run-no-gdb: no-gdb
+	bochs -f $(BUILD_DIR)/../bochsrc
+
+run-with-gdb: with-gdb
+	bochs -f $(BUILD_DIR)/../bochsrc

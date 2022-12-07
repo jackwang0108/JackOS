@@ -10,6 +10,7 @@
 #include "syscall-init.h"
 #include "syscall.h"
 #include "stdio.h"
+#include "kstdio.h"
 
 
 void k_thread_a(void *);
@@ -29,7 +30,7 @@ int main(void){
 
     // 开中断, 使得时钟中断可以运行, 从而能够开始运行线程调度
     intr_enable();
-    console_put_str("main_pid: 0x"), console_put_int(sys_getpid()), console_put_char('\n');
+    kprintf("main_pid: 0x%x\n", sys_getpid());
 
     // 内核线程输出用户进程pid
     thread_start("k_thread_a", 31, k_thread_a, "argA ");
@@ -42,7 +43,7 @@ void k_thread_a(void *arg){
     char* para = (char *)arg;
 
     void *addrs[7];
-    console_put_str("thread a_start\n");
+    kprintf("thread a_start\n");
     int max = 1000;
     while (max-- > 0){
         int i, size;
@@ -66,7 +67,7 @@ void k_thread_a(void *arg){
         while(i-- > 0 && i != 2 && i != 5)
             sys_free(addrs[i]);
     }
-    console_put_str("thread a_ends\n");
+    kprintf("thread a_ends\n");
     while(1);
 }
 
@@ -74,7 +75,7 @@ void k_thread_b(void *arg){
     char* para = (char *)arg;
     void *addrs[9];
     int max = 1000;
-    console_put_str("thread b_start\n");
+    kprintf("thread b_start\n");
     while (max-- > 0){
         int i = 0, size = 9;
         // alloc test 1
@@ -106,7 +107,7 @@ void k_thread_b(void *arg){
         for (i = 0; i < 9; i++)
             sys_free(addrs[i]);
     }
-    console_put_str("thread_b end\n");
+    kprintf("thread_b end\n");
     while(1);
 }
 
