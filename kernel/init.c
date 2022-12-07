@@ -8,6 +8,7 @@
 #include "keyboard.h"
 #include "tss.h"
 #include "syscall-init.h"
+#include "ide.h"
 
 void init_all(void){
     put_str("init_all\n");
@@ -17,6 +18,7 @@ void init_all(void){
     timer_init();               // 初始化PIT（Programmable Interval Timer）
     console_init();             // 初始化控制台
     keyboard_init();            // 初始化键盘
+    ide_init();                 // 初始化硬盘
     tss_init();
     syscall_init();
 }

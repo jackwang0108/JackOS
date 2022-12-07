@@ -164,6 +164,9 @@ typedef struct __gdt_desc_t {
 // 一个页4096个字节，即4K
 #define PG_SIZE 4096
 
+// 向上整除
 #define DIV_CEILING(X, STEP) ((X + STEP - 1) / (STEP))
+
+#define UNUSED __attribute__((unused))
 
 #endif

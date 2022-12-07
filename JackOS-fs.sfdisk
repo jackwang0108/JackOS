@@ -1,0 +1,12 @@
+label: dos
+label-id: 0x608e4752
+device: JackOS-fs.img
+unit: sectors
+
+JackOS-fs.img1 : start=        2048, size=       61440, type=83
+JackOS-fs.img4 : start=       63488, size=      100352, type=5
+JackOS-fs.img5 : start=       65536, size=       20480, type=66
+JackOS-fs.img6 : start=       88064, size=       20480, type=66
+JackOS-fs.img7 : start=      110592, size=       20480, type=66
+JackOS-fs.img8 : start=      133120, size=       20480, type=66
+JackOS-fs.img9 : start=      155648, size=        8192, type=66

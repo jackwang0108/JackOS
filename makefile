@@ -15,7 +15,7 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/switch.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o\
 		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o\
 		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o\
-		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o
+		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o $(BUILD_DIR)/ide.o
 
 
 ############################################################
@@ -27,8 +27,10 @@ $(BUILD_DIR)/main.o: kernel/main.c \
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/init.o: kernel/init.c kernel/init.h\
-		lib/kernel/print.h lib/stdint.h kernel/interrupt.h device/timer.h\
-		kernel/memory.h device/console.h
+		lib/kernel/print.h lib/stdint.h kernel/interrupt.h \
+		device/timer.h device/console.h device/keyboard.h device/ide.h\
+		thread/thread.h kernel/memory.h\
+		userprog/tss.h userprog/syscall-init.h
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/interrupt.o: kernel/interrupt.c kernel/interrupt.h\
@@ -108,6 +110,14 @@ $(BUILD_DIR)/kstdio.o: lib/kernel/kstdio.c lib/kernel/kstdio.h\
 	$(CC) $(CFLAGS) $< -o $@
 
 
+$(BUILD_DIR)/ide.o: device/ide.c device/ide.h\
+		lib/stdint.h lib/kernel/list.h lib/kernel/bitmap.h\
+		device/timer.h thread/sync.h\
+		lib/stdio.h lib/kernel/kstdio.h\
+		kernel/io.h kernel/debug.h 
+	$(CC) $(CFLAGS) $< -o $@
+
+
 ############################################################
 ###################### 编译汇编文件 ##########################
 ############################################################
@@ -142,9 +152,10 @@ mk_dir:
 bin_folder=$(BUILD_DIR)/..
 hd:
 	dd if=/dev/zero of=$(bin_folder)/JackOS.img \
-		bs=512 seek=0 conv=notrunc count=100000
+		bs=60M seek=0 conv=notrunc count=1
 	dd if=/dev/zero of=$(bin_folder)/JackOS-fs.img \
-		bs=512 seek=0 conv=notrunc count=165000
+		bs=80M seek=0 conv=notrunc count=1
+	 	sfdisk $(bin_folder)/JackOS-fs.img < $(bin_folder)/JackOS-fs.sfdisk
 	dd if=$(BUILD_DIR)/mbr.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=0 conv=notrunc
 	dd if=$(BUILD_DIR)/loader.bin of=$(bin_folder)/JackOS.img \
@@ -155,6 +166,7 @@ hd:
 clean:
 	cd $(BUILD_DIR) && rm -f ./*
 	cd $(bin_folder) && (rm -f JackOS.img || true) && (rm -f JackOS.img.lock || true)
+	cd $(bin_folder) && (rm -f JackOS-fs.img || true) && (rm -f JackOS-fs.img.lock || true)
 
 build: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
 
