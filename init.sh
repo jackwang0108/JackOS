@@ -6,123 +6,309 @@ export TARGET=i686-elf
 export PATH="$PREFIX/bin:$PATH"
 export BXSHARE="$PREFIX/share/bochs"
 
-purple="\e[35m"
-green="\e[32m"
-red="\e[31m"
+
+# Configure Options
+# modify them if you need more/less options. Don't forget <white-space> before \
+
+# bochs configure options
+read -r -d '' bochs_no_gdb_configure <<- EOM
+--enable-debugger \
+--enable-iodebug \
+--enable-x86-64 \
+--with-x \
+--with-x11
+EOM
+read -r -d '' bochs_with_gdb_configure <<- EOM
+--enable-gdb-stub \
+--enable-iodebug \
+--enable-x86-64 \
+--with-x \
+--with-x11
+EOM
+
+# qemu configure options
+read -r -d '' qemu_configure <<- EOM
+EOM
+
+# gcc configrue options
+read -r -d '' gcc_configure <<- EOM
+--disable-nls \
+--enable-language=c,c++ \
+--without-headers 
+EOM
+
+# binutils configure options
+read -r -d '' binutils_configure <<- EOM
+--with-sysroot \
+--disable-nls \
+--disable-werror 
+EOM
+
+
+
+# terminal colors
+purple='\e[35m'
+green='\e[32m'
+red='\e[31m'
 return='\e[0m'
+
+function red(){
+    echo -e "$red$1$return"
+}
+
+function green(){
+    echo -e "$green$1$return"
+}
+
+function purple () {
+    echo -e "$purple$1$return"
+}
+
 
 
 if [[ $1 = '-h' ]] || [[ $1 = '--help' ]]; then
-    echo "Init tools for downloading, compiling, installing debugger and corss-compile tool-chain of JackOS, created by Jack Wang"
+    echo "Init tools for downloading, compiling, and installing corss-compile and debug tool-chain for JackOS, created by Jack Wang"
     echo 'Options:'
     echo '    -h, --help                Show this help message'
     echo '    -d, --download            Download toolchain'
-    echo '    -c, --compile             Compile toolchain'
+    echo '    -c, --compile             Compile toolchain, without qemu'
+    echo '    -fc, --fully-compile      Compile toolchain, with qemu'
 fi
 
 if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]]; then
     if [[ ! -d "$shell_folder"/tools/src ]]; then
-        read -p 'tools/src not exits, download? <y/n>: ' download
+        read -p 'tools/src not exists, create? <y/n>: ' download
         if [[ $download = "y" ]]; then
             mkdir -p "$shell_folder"/tools/src
         fi
     fi
     if [[ $1 = "-d" ]] || [[ $1 = "--download" ]]; then
-        echo 'Downloading debug tool'
-        echo -e "$purple=> bochs-2.7$return" 
+        echo 'Downloading debug tools...'
+        purple "=> bochs-2.7"
         if  [ -f "$shell_folder"/tools/src/bochs-2.7.tar.gz ]; then
-            echo -e "${green}bochs download success$return"
+            green 'bochs already exists, nothing changed, run `rm -rf tools/src/bochs-2.7.tar.gz` to force re-download'
         else
             if wget -t 5 -T 5 -c --quiet --show-progress -O "$shell_folder"/tools/src/bochs-2.7.tar.gz  https://sourceforge.net/projects/bochs/files/bochs/2.7/bochs-2.7.tar.gz ; then
-                echo -e "${green}bochs download success$return"
+                green "bochs download success"
             else
-                echo -e "${red}bochs download fail, exiting...$return"
+                red 'bochs download fail, removing temp files... exiting...'
+                rm -f "$shell_folder"/tools/src/bochs-2.7.tar.gz
+                exit 255
             fi
         fi
+        purple "=> qemu-7.2.0"
+        if  wget -T 5 -c --quiet --show-progress -P "$shell_folder"/tools/src https://download.qemu.org/qemu-7.2.0-rc4.tar.xz; then
+            green "qemu download success"
+        else
+            red 'qemu download fail, exiting... Re-run `bash init.sh -d` to continue qemu download'
+            exit 255
+        fi
         echo 'Downloading cross-compiler...'
-        echo -e "$purple=> nasm$return"
-        if command -v nasm -v > /dev/null 2>&1; then
-            echo 'nasm detection, skipping...'
-        else
-            echo 'nasm not detected, downloading...'
-            sudo apt-get install nasm -y
-        fi
-        echo -e "$purple=> gcc-10.4$return"
+        purple "=> gcc-10.4"
         if  wget -T 5 -c --quiet --show-progress -P "$shell_folder"/tools/src https://ftp.gnu.org/gnu/gcc/gcc-10.4.0/gcc-10.4.0.tar.gz; then
-            echo -e "${green}gcc download success$return"
+            green "gcc download success"
         else
-            echo -e  "${red}gcc download fail, exiting...${return}" && exit
+            red 'gcc download fail, exiting... Re-run `bash init.sh -d` to continue gcc download'
+            exit 255
         fi
-        echo -e "$purple=> binutils-2.7$return"
+        purple "=> binutils-2.38"
         if  wget -c -T 5 --quiet --show-progress -P "$shell_folder"/tools/src https://ftp.gnu.org/gnu/binutils/binutils-2.38.tar.gz;then
-            echo -e "${green}binutils download success$return"
+            green "binutils download success"
         else
-            echo -e  "${green}binutils download fail, exiting...$return" && exit
+            red 'binutils downlaod fail, exiting... Re-run `bash init.sh -d` to continue binutils download'
+            exit 255
         fi
     fi
 fi
 
-if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]]; then
+if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--fully-compile' ]]; then
     log="$shell_folder"/tools/log
     mkdir -p "$log"
+
+    # print info
     echo -e "Target platform $green$TARGET${return}"
     echo -e "Cross-compile tools will be installed: ${green}$PREFIX$return"
-    echo -e "Compile logs will be written to ${green}$log$return"
-    echo "Compile may take 10 minutes, start in 3 seconds..."
+    echo -e "Compile logs will be written to: ${green}$log$return"
+    echo -e "Modify first few lines of init.sh to change compile options"
+    if [[ $1 = '-fc' ]]; then
+        echo -e "Please make sure at least ${green}18GB free space$return left, since ${green}qemu$return may take ${green}10GB$return and ${green}gcc$return will take another ${green}4.5GB$return"
+        echo -e "Compile may take ${green}20 minutes${return}, start in 3 seconds..."
+    else
+        echo -e "Please make sure at least ${green}6GB free space$return left, since ${green}gcc$return will take ${green}4.5GB$return"
+        echo -e "Compile may take ${green}5 minutes${return}, start in 3 seconds..."
+    fi
     sleep 3s
+
+    # basics utils
+    purple "=> Installing basic utils:"
+    if ! sudo apt update && sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo | tee "$log"/basic-utils.log; then
+        red "install basic utils failed, exiting"
+        exit 255
+    fi
+
     # bochs
-    echo -e "$purple=> Compile bochs-2.7: no gdb$return"
-    cd "$shell_folder"/tools/src || (echo "cd to tools/src fail, nothong changed, exiting..." && exit)
+    purple "=> Compile bochs-2.7: no gdb"
+    cd "$shell_folder"/tools/src || (red "cd to tools/src fail, nothong changed, exiting..."; exit 255)
+    green "Compile options: $bochs_no_gdb_configure"
     echo "Extracting..."
-    sleep 2s
-    tar xzf "$shell_folder"/tools/src/bochs-2.7.tar.gz\
-    && mkdir -p build-bochs\
-    && cd "$shell_folder"/tools/src/build-bochs\
-    && (../bochs-2.7/configure --prefix="$PREFIX" --enable-debugger --enable-iodebug --enable-x86-64-debugger --with-x --with-x11 2>&1 | tee "$log"/bochs-debugger-configure.log)\
-    && (make -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make.log)\
-    && (make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make-install.log)\
-    && (../bochs-2.7/configure --prefix="$shell_folder"/tools/build-bochs-gdb --enable-gdb-stub --enable-iodebug --enable-x86-64-debugger --with-x --with-x11 2>&1 | tee "$log"/bochs-gdb-debugger-configure.log)\
-    && (make -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make.log)\
-    && (make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make-install.log)\
-    && (mv "$shell_folder"/tools/build-bochs-gdb/bin/bochs "$shell_folder"/tools/bin/bochs-gdb)\
-    && rm -r "$shell_folder"/tools/build-bochs-gdb
-    echo -e "${green}bochs, bochs-gdb compile and install successfully$return, PS: ignore bochsdgb not found, it's no an error"
+    sleep 3s
+    if ! tar xzf "$shell_folder"/tools/src/bochs-2.7.tar.gz; then
+        red "extract bochs-2.7.tar.gz fail, exiting"
+        exit 255
+    fi
+    if ! mkdir -p build-bochs; then
+        red "creating build-bochs fail, exiting..."
+        exit 255
+    fi
+    # bochs-2.7 no-gdb
+    cd "$shell_folder"/tools/src/build-bochs || (red 'cd to build-bochs fail' ;exit)
+    if ! ../bochs-2.7/configure --prefix="$PREFIX" $bochs_no_gdb_configure 2>&1 | tee "$log"/bochs-debugger-configure.log; then
+        red 'bochs-2.7 no-gdb configure fail, exiting...'
+        exit 255
+    fi
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make.log; then
+        red "bochs-2.7 no-gdb make fail, exiting..."
+        exit 255
+    fi
+    cp bochs bochsdbg
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make-install.log; then
+        red "bochs-2.7 no-gdb make install fail, exiting..."
+        exit 255
+    fi
+
+    # bochs-2.7 with-gdb
+    purple "=> Compile bochs-2.7: with gdb"
+    green "Compile options: $bochs_with_gdb_configure"
+    sleep 5s
+    if ! ../bochs-2.7/configure --prefix="$shell_folder"/tools/build-bochs-gdb $bochs_with_gdb_configure 2>&1 | tee "$log"/bochs-gdb-debugger-configure.log; then
+        red "bochs-2.7 with-gdb configure fail, exiting..."
+        exit 255
+    fi
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make.log; then
+        red "bcohs-2.7 with-gdb make fail, exiting..."
+        exit 255
+    fi
+    cp bochs bochsdbg
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make-install.log; then
+        red "bochs-2.7 with-gdb make install fail, exiting...."
+        exit 255
+    fi
+    if ! mv "$shell_folder"/tools/build-bochs-gdb/bin/bochs "$shell_folder"/tools/bin/bochs-gdb; then
+        red "bochs-2.7 with-gdb rename fail, exiting..."
+        exit 255
+    fi
+    if ! rm -r "$shell_folder"/tools/build-bochs-gdb; then
+        red "bochs-2.7 with-gdb remove temp file failed, exiting..."
+        exit 255
+    fi
+    green "bochs, bochs-gdb, bochsdbg and bximage successfully compiled and installed. PS: ignore bochsdbg not found, it doesn't matter"
+
+    # qemu
+    if [[ $1 = "-fc" ]] || [[ $1 = "--fully-compile" ]]; then
+        purple "=> Compile qemu-7.2.0"
+        cd "$shell_folder"/tools/src || (red "cd to tools/src fail, nothong changed, exiting..." && exit 255)
+        green "Compile options: $qemu_configure"
+        echo "Extracting..."
+        sleep 2s
+        if ! tar xJf "$shell_folder"/tools/src/qemu-7.2.0-rc4.tar.xz; then
+            red "extract qemu-7.2.0 fail, exiting"
+            exit 255
+        fi
+        if ! mkdir -p build-qemu; then
+            red "creating build-qemu fail, exiting..."
+            exit 255
+        fi
+        cd "$shell_folder"/tools/src/build-qemu || (red 'cd to build-qemu fail' ;exit)
+        if ! ../qemu-7.2.0-rc4/configure --prefix="$PREFIX" $qemu_configure 2>&1 | tee "$log"/qemu-configure.log; then
+            red "qemu-7.2.0 configure fail, exiting..."
+            exit 255
+        fi
+        if ! make -j "$(nproc)" 2>&1 | tee "$log"/qemu-make.log; then
+            red "qemu-7.2.0 make fail, exiting..."
+            exit 255
+        fi
+        if ! make install -j "$(nproc)" 2>&1 | tee "$log"/qemu-make-install.log; then
+            red "qemu-7.2.0 make install fail, exiting..."
+            exit 255
+        fi
+        green "qemu successfully compiled and installed"
+    fi
 
     # binutils
-    echo -e "$purple=> Compile binutils.2.38$return"
-    cd "$shell_folder"/tools/src || (echo "cd to tools/src fail, nothong changed, exiting..." && exit)
+    purple "=> Compile binutils-2.38"
+    cd "$shell_folder"/tools/src || (red "cd to tools/src fail, nothong changed, exiting..." && exit 255)
+    green "Compile options: $binutils_configure"
     echo "Extracting..."
-    sleep 2s
-    tar xzf "$shell_folder"/tools/src/binutils-2.38.tar.gz\
-    && mkdir -p build-binutils\
-    && cd "$shell_folder"/tools/src/build-binutils\
-    && (../binutils-2.38/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror 2>&1 | tee "$log"/binutil-configure.log)\
-    && (make -j "$(nproc)" 2>&1 | tee "$log"/binutil-make.log)\
-    && (make install 2>&1 | tee "$log"/binutil-make-install.log)
-    echo -e "${green}binutils compile and install successfully${return}"
+    sleep 3s
+    if ! tar xzf "$shell_folder"/tools/src/binutils-2.38.tar.gz; then
+        red "extract binutils-2.38 fail, exiting"
+        exit 255
+    fi
+    if ! mkdir -p build-binutils; then
+        red "creating build-binutils fail, exiting..."
+        exit 255
+    fi
+    cd "$shell_folder"/tools/src/build-binutils || (red 'cd to build-binutils fail' ;exit)
+    if ! ../binutils-2.38/configure --target=$TARGET --prefix="$PREFIX" $binutils_configure 2>&1 | tee "$log"/binutil-configure.log; then
+        red "binutils-2.38 configure fail, exiting..."
+        exit 255
+    fi
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/binutil-make.log; then
+        red "binutils-2.38 make fail, exiting..."
+        exit 255
+    fi
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/binutil-make-install.log; then
+        red "binutils-2.38 make install fail, exiting..."
+        exit 255
+    fi
+    green "binutils successfully compiled and installed"
 
     # gcc
-    echo -e "$purple=> Compile gcc$return"
+    purple "=> Compile gcc"
     cd "$shell_folder"/tools/src || (echo "cd to tools fail, nothong changed, exiting..." && exit)
-    echo "search $TARGET-as..."
-    which -- $TARGET-as || (echo "$TARGET-as is not in the PATH, aborting..."; exit)
+    echo "Searching $TARGET-as..."
+    which -- $TARGET-as || (red "$TARGET-as is not in the PATH, aborting..."; exit)
+    green "Compile options: $binutils_configure"
     echo "Extracting..."
-    sleep 2s
-    tar xzf "$shell_folder"/tools/src/gcc-10.4.0.tar.gz\
-    && mkdir -p build-gcc\
-    && cd "$shell_folder"/tools/src/build-gcc || exit\
-    && ../gcc-10.4.0/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-language=c,c++ --without-headers 2>&1 | tee "$log"/gcc-configure.log\
-    && make -j "$(nproc)" all-gcc 2>&1 | tee "$log"/gcc-make-all-gcc.log\
-    && make -j "$(nproc)" all-target-libgcc 2>&1 | tee "$log"/gcc-make-all-target-libgcc.log\
-    && make install-gcc 2>&1 | tee "$log"/gcc-make-install-gcc.log\
-    && make install-target-libgcc 2>&1 | tee "$log"/gcc-make-install-target-libgcc.log
-    echo -e "${green}gcc compile and install successfully$return"
+    sleep 3s
+    if ! tar xzf "$shell_folder"/tools/src/gcc-10.4.0.tar.gz; then
+        red "extract gcc-10.4.0.tar.gz fail, exiting..."
+        exit 255
+    fi
+    if ! mkdir -p build-gcc; then
+        red "creating build-gcc fail, exiting..."
+        exit 255
+    fi
+    cd "$shell_folder"/tools/src/build-gcc || (red 'cd to build-gcc fail' ;exit)
+    if ! ../gcc-10.4.0/configure --target=$TARGET --prefix="$PREFIX" $gcc_configure 2>&1 | tee "$log"/gcc-configure.log; then
+        red "gcc-10.4.0 configure fail, exiting..."
+        exit 255
+    fi
+    if ! make -j "$(nproc)" all-gcc 2>&1 | tee "$log"/gcc-make-all-gcc.log; then
+        red "gcc-10.4.0 all-gcc make fail, exiting..."
+        exit 255
+    fi
+    if ! make -j "$(nproc)" all-target-libgcc 2>&1 | tee "$log"/gcc-make-all-target-libgcc.log; then
+        red "gcc-10.4.0 all-target-libgcc make fail, exiting..."
+        exit 255
+    fi
+    if ! make install-gcc 2>&1 | tee "$log"/gcc-make-install-gcc.log; then
+        red "gcc-10.4.0 all-gcc make install fail, exiting..."
+        exit 255
+    fi 
+    if ! make install-target-libgcc 2>&1 | tee "$log"/gcc-make-install-target-libgcc.log; then
+        red "gcc-10.4.0 all-target-libgcc make install fail, exiting..."
+        exit 255
+    fi
+    green "gcc successfully compiled and installed"
 
     cd "$shell_folder" || exit;
-    echo "You can run bochs, bochs-gdb, $TARGET-gcc, $TARGET-ld, $TARGET-as now"
-    echo -e "${green}"
-    echo 'Run `source init.sh` first or manually add tools/bin into your PATH'
-    echo -e "${return}"
+    if [[ $1 = "-fc" ]] || [[ $1 = '--fully-compile' ]]; then
+        purple "You can run bochs, bochs-gdb, qemu, $TARGET-gcc, $TARGET-ld, $TARGET-as now"
+    else
+        purple "You can run bochs, bochs-gdb, $TARGET-gcc, $TARGET-ld, $TARGET-as now"
+    fi
+
+    green "Run \`source init.sh\` first or manually add tools/bin into your PATH"
 fi
-    
-# fi
+
