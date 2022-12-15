@@ -9,6 +9,7 @@
 #include "tss.h"
 #include "syscall-init.h"
 #include "ide.h"
+#include "fs.h"
 
 void init_all(void){
     put_str("init_all\n");
@@ -19,6 +20,7 @@ void init_all(void){
     console_init();             // 初始化控制台
     keyboard_init();            // 初始化键盘
     ide_init();                 // 初始化硬盘
+    filesys_init();             // 初始化文件系统
     tss_init();
     syscall_init();
 }
