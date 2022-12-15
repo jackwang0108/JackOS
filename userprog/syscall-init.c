@@ -23,14 +23,14 @@ uint32_t  sys_getpid(void){
 
 
 /**
- * @brief sys_write是write系统调用的执行函数, 用于将打印指定的字符串到终端上
- * @param str 指向要输出的以'\0'结尾的字符串
- * @return uint32_t 打印的字符串的长度
+ * @brief sys_write是write系统调用的实现函数. 用于向fd指定的文件中写入buf中count个字节的数据
+ * 
+ * @param fd 需要写入的文件描述符
+ * @param buf 需要写入的数据所在的缓冲区
+ * @param count 需要写入的字节数
+ * @return int32_t 成功写入的字节数
  */
-uint32_t sys_write(char *str){
-    console_put_str(str);
-    return strlen(str);
-}
+extern int32_t sys_write(int32_t fd, const void *buf, uint32_t count);
 
 
 /**
@@ -44,12 +44,14 @@ uint32_t sys_write(char *str){
  */
 extern void* sys_malloc(uint32_t size);
 
+
 /**
  * @brief sys_free用于释放sys_malloc分配的内存. 定义在memory.c中
  * 
  * @param ptr 指向由sys_malloc分配的物理内存
  */
 extern void sys_free(void* ptr);
+
 
 /**
  * @brief syscall_init 用于初始化系统调用, 即在syscall_table中注册各个系统调用

@@ -14,8 +14,10 @@ uint32_t  sys_getpid(void);
  * @brief sys_write是write系统调用的执行函数, 用于将打印指定的字符串到终端上
  * @param str 指向要输出的以'\0'结尾的字符串
  * @return uint32_t 打印的字符串的长度
+ * 
+ * @deprecated 该函数已经在fs/fs.c中有更加强大的实现
  */
-uint32_t sys_write(char *str);
+// uint32_t sys_write(char *str);
 
 
 /**
