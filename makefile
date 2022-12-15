@@ -4,7 +4,7 @@ PREFIX = /home/jack/projects/ElephantBook/tools/bin
 AS = nasm
 CC = $(PREFIX)/i686-elf-gcc
 LD = $(PREFIX)/i686-elf-ld
-LIB = -I lib/ -I lib/kernel -I lib/user -I kernel -I device -I thread -I userprog
+LIB = -I lib/ -I lib/kernel -I lib/user -I kernel -I device -I thread -I userprog -I fs
 # -W 表示Warning相关的Flag, -f 表示选择option, gcc为了加速会对一些诸如abs，strncpy等进行重定义，禁止gcc的这一行为
 CFLAGS = -O0 -W -Wall $(LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -g -Werror=incompatible-pointer-types
 LDFLAGS = -Ttext $(ENTRY_POINT) -e main -Map $(BUILD_DIR)/kernel.map
@@ -15,7 +15,9 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/switch.o $(BUILD_DIR)/console.o $(BUILD_DIR)/sync.o\
 		$(BUILD_DIR)/keyboard.o $(BUILD_DIR)/ioqueue.o $(BUILD_DIR)/tss.o\
 		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o\
-		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o $(BUILD_DIR)/ide.o
+		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o $(BUILD_DIR)/ide.o\
+		$(BUILD_DIR)/dir.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o\
+		$(BUILD_DIR)/super_block.o $(BUILD_DIR)/file.o $(BUILD_DIR)/test.o
 
 
 ############################################################
@@ -109,13 +111,39 @@ $(BUILD_DIR)/kstdio.o: lib/kernel/kstdio.c lib/kernel/kstdio.h\
 		lib/stdio.h device/console.h
 	$(CC) $(CFLAGS) $< -o $@
 
-
 $(BUILD_DIR)/ide.o: device/ide.c device/ide.h\
 		lib/stdint.h lib/kernel/list.h lib/kernel/bitmap.h\
 		device/timer.h thread/sync.h\
 		lib/stdio.h lib/kernel/kstdio.h\
 		kernel/io.h kernel/debug.h 
 	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/dir.o: fs/dir.c fs/dir.h\
+		fs/inode.h fs/fs.h lib/stdint.h device/ide.h 
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/fs.o: fs/fs.c fs/fs.h\
+		device/ide.h fs/inode.h kernel/debug.h lib/string.h lib/kernel/kstdio.h fs/dir.h lib/stdint.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/inode.o: fs/inode.c fs/inode.h\
+		lib/kernel/list.h lib/stdint.h fs/fs.h  device/ide.h kernel/debug.h lib/string.h kernel/interrupt.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/super_block.o: fs/super_block.c fs/super_block.h\
+		kernel/global.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/file.o: fs/file.c fs/file.h\
+		fs/inode.h lib/stdint.h kernel/debug.h thread/thread.h\
+		lib/string.h lib/kernel/kstdio.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/test.o: kernel/test.c kernel/test.h\
+		fs/fs.h device/ide.h
+	$(CC) $(CFLAGS) $< -o $@
+
+
 
 
 ############################################################
@@ -144,18 +172,19 @@ $(BUILD_DIR)/mbr.bin: boot/mbr.S
 	$(AS) -f bin $(ASLIB) $< -o $@
 
 
-.PHONY: mk_dir hd clean all rc
+.PHONY: mk_dir hd clean-os clean-fs clean-build all rc
 
 mk_dir:
 	if [ ! -d $(BUILD_DIR) ];then mkdir -p $(BUILD_DIR); fi
 
 bin_folder=$(BUILD_DIR)/..
 hd:
-	dd if=/dev/zero of=$(bin_folder)/JackOS.img \
-		bs=60M seek=0 conv=notrunc count=1
-	dd if=/dev/zero of=$(bin_folder)/JackOS-fs.img \
-		bs=80M seek=0 conv=notrunc count=1
-	 	sfdisk $(bin_folder)/JackOS-fs.img < $(bin_folder)/JackOS-fs.sfdisk
+#	dd if=/dev/zero of=$(bin_folder)/JackOS.img \
+#		bs=60M seek=0 conv=notrunc count=1
+#	dd if=/dev/zero of=$(bin_folder)/JackOS-fs.img \
+#		bs=80M seek=0 conv=notrunc count=1
+#	sfdisk $(bin_folder)/JackOS-fs.img < $(bin_folder)/JackOS-fs.sfdisk
+	bash $(BUILD_DIR)/../genrc.sh
 	dd if=$(BUILD_DIR)/mbr.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=0 conv=notrunc
 	dd if=$(BUILD_DIR)/loader.bin of=$(bin_folder)/JackOS.img \
@@ -163,10 +192,19 @@ hd:
 	dd if=$(BUILD_DIR)/kernel.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=9 conv=notrunc
 
-clean:
-	cd $(BUILD_DIR) && rm -f ./*
+
+clean-os:
 	cd $(bin_folder) && (rm -f JackOS.img || true) && (rm -f JackOS.img.lock || true)
+
+clean-fs:
 	cd $(bin_folder) && (rm -f JackOS-fs.img || true) && (rm -f JackOS-fs.img.lock || true)
+
+clean-build:
+	cd $(BUILD_DIR) && rm -f ./*
+
+clean: clean-build clean-os clean-fs
+
+
 
 build: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
 
