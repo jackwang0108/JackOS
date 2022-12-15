@@ -62,7 +62,7 @@ static inline uint8_t inb(uint16_t port){
 
 
 /**
- * @brief insw (in series byte)从端口port中读入word_cnt个字节到addr指向的内存区域
+ * @brief insw (in series byte)从端口port中读入word_cnt个字到addr指向的内存区域
  * 
  * @param port 端口号，范围0~65535
  * @param addr 将写入的内存区域

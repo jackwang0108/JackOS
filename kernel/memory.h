@@ -198,6 +198,17 @@ void block_desc_init(mem_block_desc_t *desc_array);
 
 
 /**
+ * @brief pfree(Physical Free)用于将给定的物理地址所属于的页回收到物理内存池
+ * 
+ * @details 由于使用Bitmap的方式管理物理内存, 而Bitmap中一位表示4K大小的内存, 即一个页.
+ *          而回收本质上就是把对应页在bitmap中的占用位的清0即可. 这样做一方面减小了开销, 
+ *          但是却造成了内存泄露的问题, 所以在用户申请一个页的时候, 需要memset清0
+ * 
+ * @param pg_phy_addr 
+ */
+void pfree(uint32_t pg_phy_addr);
+
+/**
  * @brief sys_malloc是malloc系统调用的实现函数, 用于在当前进程的堆中申请size个字节的内存
  * 
  * @details 开启虚拟内存以后, 只有真正的分配物理页, 在页表中添加物理页和虚拟页的映射才会接触到物理页,
