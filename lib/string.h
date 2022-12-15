@@ -64,6 +64,16 @@ int8_t strcmp(const char* a, const char* b);
 
 
 /**
+ * @brief strcat用于将字符串src_拼接到dst_后, 而后返回dst_的首地址
+ * 
+ * @param dst_ 
+ * @param src_ 
+ * @return char* 
+ */
+char *strcat(char *dst_, const char* src_);
+
+
+/**
  * @brief strchr返回字符串从左往右第一次出现字符ch的地址
  * 
  * @param str 被搜索的字符串
