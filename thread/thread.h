@@ -16,6 +16,8 @@
 #include "bitmap.h"
 #include "memory.h"
 
+#define MAX_FILE_OPEN_PER_PROC 8
+
 /// 线程函数的模板
 typedef void thread_func(void*);
 /// 进程或者线程的pid
@@ -121,6 +123,8 @@ typedef struct __task_struct {
     uint8_t this_tick;
     /// 内核线程TCB被创建以来所有运行的时钟数
     uint32_t total_ticks;
+    /// 内核线程打开的文件描述符列表
+    int32_t fd_table[MAX_FILE_OPEN_PER_PROC];
 
     /* ------------------------------ 内核线程所在的链表 ------------------------------ */
     // 操作系统中需要维护两个双向链表：ready内核线程链表，总内核线程表
@@ -142,15 +146,78 @@ typedef struct __task_struct {
     mem_block_desc_t u_block_desc[MEM_UNIT_CNT];
 
 
+    /* ------------------------------ Miscellaneous ------------------------------ */
+    /// 当前进程所在的工作目录的inode编号
+    uint32_t cwd_inode_no;
+
+
     /// 栈的边界标记，用于检测栈是否溢出，栈指针被初始化到当前页的最后一个字节，而后向上增长，即向低地址增长
     uint32_t stack_magic;
 } task_struct_t;
 
 
+/**
+ * @brief init_thread用于初始化线程的TCB，使得调度器能够进行调度。该函数完成的事为：
+
+ *          1. TCB所占用的内存区域清零
+ *          2. 设置线程状态为RASK_READY, 若为内核线程，则直接设置为TASK_RUNNING
+ *          3. 初始化TCB中的数据, 包括pgdir, priority, this_tick, total_ticks, time_slice
+ *          4. 注意，TCB中的self_kstack被设置为TCB所在这这一页的页尾
+ * 
+ * @param tc 线程的TCB，要求是指向摸个虚拟页的
+ * @param name 线程的名字
+ * @param time_slice 线程的时间片大小，以时钟中断数为单位
+ * 
+ */
 void thread_init(void);
+
+
+/**
+ * @brief thread_create用于初始化tcb指向的内核线程的线程栈。
+ * 
+ * @details 该函数具体干的事情:
+ *          1. 用于运行用户进程的内核线程以中断返回的形式进入到3特权级运行，因此这里为用户进程对应的内核线程分配一个intr_stack_t
+ *          2. 为了能够让内核线程第一次能够成功运行，所以还需要分配一个thread_stack_t，里面存储第一次运行时候的函数和传入函数的参数
+ * 
+ * @param tcb 指向线程的tcb(task_struct_t)的指针
+ * @param function 将要执行的函数function
+ * @param func_arg 将要传入函数function的参数
+ */
 void thread_create(task_struct_t* tcb, thread_func function, void *func_arg);
+
+/**
+ * @brief 将当前进程从CPU上换下，并且设置其状态为status
+ * 
+ * @param status 当前进程将被设置的状态
+ * 
+ * @note thread_block的原理就是当前正在运行的进程running_thread在运行的时候一定是在schedule中被pop出来的
+ *      因此running_thread此时一定不在ready_list中，只在all_list中。所以只需要将其状态改变，而后进行调度即可
+ *      此时被阻塞的进程就被保存在all_list中，而不在ready_list中，因此调用schedule之后，就会有新的进程运行
+ * 
+ * @note 系统不负责维护被阻塞线程的队列，也不负责唤醒被阻塞的线程。维护被阻塞线程的队列由调用者来维护，并且由调用者决定
+ *      何时唤醒被阻塞的线程
+ */
 void thread_block(task_status_t status);
+
+/**
+ * @brief thread_unblock用于将一个被阻塞的线程放入ready_list中
+ * 
+ * @param tcb 指向要被unblock的线程
+ * 
+ * @note thread_unblock的原理就是改变进程的状态，而后将其加入到ready_list中即可，并没有发生真正的调度
+ *
+ * @note 系统不负责维护被阻塞线程的队列，也不负责唤醒被阻塞的线程。维护被阻塞线程的队列由调用者来维护，并且由调用者决定
+ *      何时唤醒被阻塞的线程
+ */
 void thread_unblock(task_struct_t *tcb);
+
+
+/**
+ * @brief thread_yield用于放弃CPU, 和thread_block中线程被动放弃CPU不同, thread_yield表示线程主动放弃CPU
+ *        因此线程的状态被设置为TRHEAD_READY, 而非THREAD_BLOCKED
+ */
+void thread_yield(void);
+
 
 /**
  * @brief thread_start用于创建一个内核线程, 并且将内核线程加入到就绪队列中，等待运行
@@ -192,5 +259,14 @@ void init_thread(task_struct_t *tcb, char *name, int time_slice);
 
 
 
+/**
+ * @brief schedule用于进行一次进程调度
+ * 
+ * @note schedule被调用的地方一个是在timer_interrupt中，timer_interrupt中会检查进程的时间片是否用完了，
+ *      如果用完了，那么就会调用schedule，此时由于running_thread()状态还是TASK_RUNNING，因此就会确定一个新的进程
+ *      此时是程序被迫放弃CPU，即被抢占
+ * 
+ * @note schedule被调用的第二个地方是thread_block，thread_block中主动修改进程当前的状态，然后此时进程主动放弃
+ */
 void schedule(void);
 #endif

@@ -9,6 +9,7 @@
 #include "sync.h"
 
 
+
 /// @brief next_pid是全局的pid线程池, 每次创建新进程的时候都会+1. 由于是全局共享的数据, 因此需要使用锁来保护
 mutex_t next_pid_lock;                              ///< next_pid的锁
 
@@ -196,6 +197,17 @@ void init_thread(task_struct_t *tcb, char *name, int time_slice){
     tcb->stack_magic = 0x20010107;
     //  分配内核线程栈的栈顶指针
     tcb->self_kstack = (uint32_t *) ((uint32_t)tcb + PG_SIZE);
+
+    // 默认以根目录为工作路径
+    tcb->cwd_inode_no = 0;
+
+    // 初始化描述符表, 0: stdin, 1: stdout, 2: stderr
+    for (int i = 0; i < MAX_FILE_OPEN_PER_PROC; i++){
+        if (i < 3)
+            tcb->fd_table[i] = i;
+        else
+            tcb->fd_table[i] = -1;
+    }
 }
 
 /**
