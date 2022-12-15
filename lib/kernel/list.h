@@ -3,9 +3,9 @@
 
 #include "global.h"
 
-// offset用于获取struct中某个member相对于sturct头的偏移量（以字节为单位）
+/// offset用于获取struct中某个member相对于sturct头的偏移量（以字节为单位）
 #define offset(struct_type, member) (int)(&((struct_type*)0)->member)
-// 将指向struct的指针指向其中的某个element
+/// elem2entry用于将指向结构体struct_type中某个元素的指针elem_ptr转为指向该结构体struct_type的指针
 #define elem2entry(struct_type, struct_member_name, elem_ptr) \
     (struct_type*)((int)elem_ptr - offset(struct_type, struct_member_name))
 
