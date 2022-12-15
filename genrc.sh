@@ -51,12 +51,18 @@ if [[ -z $fs_img ]]; then
     echo "Creating JackOS-fs.img:"
     fs_img="JackOS-fs.img"
     echo "Generating $fs_img..."
-    bximage -q -func=create -hd=60 -imgmode=flat "$shell_folder"/$fs_img
+    bximage -q -func=create -hd=80 -imgmode=flat "$shell_folder"/$fs_img
     fsbin_info=($(bximage -func=info $fs_img -q | awk '/geometry/{print $3}' | awk -F '/' '{print $1,$2,$3}'))
     echo "File system image created: $fs_img, C/H/S: ${fsbin_info[0]}/${fsbin_info[1]}/${fsbin_info[2]}"
+    echo "Writing partition info into $fs_img"
+	sfdisk $fs_img < "$shell_folder"/JackOS-fs.sfdisk
 else
     fsbin_info=($(bximage -func=info $fs_img -q | awk '/geometry/{print $3}' | awk -F '/' '{print $1,$2,$3}'))
     echo "File system image detected: $fs_img, C/H/S: ${fsbin_info[0]}/${fsbin_info[1]}/${fsbin_info[2]}"
+    echo "Partition info"
+    fdisk -l $fs_img
+    echo
+    echo "Please check the partition info of $fs_img whether it matches partition info in JackOS-fs.sfdisk"
 fi
 
 
@@ -69,6 +75,7 @@ else
 fi
 
 echo "KPATH=$kernel_img, C/H/S=${kbin_info[0]}/${kbin_info[1]}/${kbin_info[2]}"
+echo "FSPATH=$fs_img, C/H/S=${fsbin_info[0]}/${fsbin_info[1]}/${fsbin_info[2]}"
 sed \
     -e "s/# $os: //g"\
     -e "$gdb"\
