@@ -16,7 +16,24 @@
         "console.h": "c",
         "userprog.h": "c",
         "syscall.h": "c",
-        "syscall-init.h": "c"
+        "syscall-init.h": "c",
+        "stdio.h": "c",
+        "kstdio.h": "c",
+        "debug.h": "c",
+        "ide.h": "c",
+        "dir.h": "c",
+        "fs.h": "c",
+        "inode.h": "c",
+        "super_block.h": "c",
+        "file.h": "c",
+        "test.h": "c"
     },
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/jack/projects/JackOS/build",
+            "binaryPath": "/home/jack/projects/JackOS/kernel.bin",
+            "binaryArgs": []
+        }
+    ]
 }

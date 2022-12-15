@@ -79,7 +79,10 @@
             "label": "make-clean",
             "command": "make",
             "args": [
-                "clean"
+                // "clean",
+                "clean-os",
+                // "clean-fs",
+                // "clean-build",
             ],
         },
         {
@@ -96,7 +99,8 @@
             "command": "rm",
             "args": [
                 "-f",
-                "${workspaceFolder}/JackOS.img.lock"
+                "${workspaceFolder}/JackOS.img.lock",
+                "${workspaceFolder}/JackOS-fs.img.lock"
             ],
             "dependsOn": "kill-bochs"
         }
@@ -111,6 +115,6 @@
                 "with-gdb"
             ],
             "description": "选择是否使用GDB来进行BOCHS调试"
-        }
+        },
     ]
 }
