@@ -5,8 +5,10 @@
 #include "list.h"
 #include "bitmap.h"
 #include "sync.h"
+#include "super_block.h"
 
-/// @brief 分区表结构
+/// @brief Sturcture of Disk Partition, only in memory. Initialized in init_all() and
+///        filled in mount_partition()
 typedef struct __partition_t{
     uint32_t start_lba;                     ///< 当前分区的起始扇区LBA号
     uint32_t sec_cnt;                       ///< 当前分区占用的扇区数
@@ -14,8 +16,8 @@ typedef struct __partition_t{
     list_elem_t part_tag;                   ///< 当前分区在链表中的标记
     char name[8];                           ///< 当前分区的名字, 例如sda1, sda2
     struct __super_block_t *sb;             ///< 当前分区的超级块, 后面文件系统会用到
-    bitmap_t block_bitmap;                  ///< 当前分区的块位图, 后面文件系统会用到
-    bitmap_t inode_bitmap;                  ///< 当前分区的inode的标记, 后面文件系统会用到
+    bitmap_t block_bitmap;                  ///< 当前分区在内存中的块位图
+    bitmap_t inode_bitmap;                  ///< 当前分区在内存中的block位图
     list_t open_inodes;                     ///< 当前分区打开的inode的标记, 后面文件系统会用到
 } partition_t;
 
@@ -54,11 +56,6 @@ typedef struct __ide_channel_t {
     disk_t devices[2];                      ///< 一个通道上连接的两个硬盘, 一个是主盘, 一个是从盘
 } ide_channel_t;
 
-
-
-typedef struct __super_block_t {
-    uint8_t a;
-} super_block_t;
 
 
 /**

@@ -251,7 +251,8 @@ bool busy_wait(disk_t *hd){
  * @param sec_cnt 需要读取的扇区号
  */
 void ide_read(disk_t *hd, uint32_t lba, void *buf, uint32_t sec_cnt){
-    ASSERT(lba <= max_lba);
+    uint32_t m_lba = max_lba;
+    ASSERT(lba <= m_lba);
     ASSERT(sec_cnt > 0);
     
     // 操作共享数据, 需要上锁
@@ -296,7 +297,7 @@ void ide_read(disk_t *hd, uint32_t lba, void *buf, uint32_t sec_cnt){
  * @brief ide_write用于将buf中的数据写入到hd指向的硬盘中从lab扇区号开始的连续sec_cnt个扇区
  * 
  * @param hd 指向需要写入的硬盘
- * @param lba 开始读取的lba扇区号
+ * @param lba 开始写入的lba扇区号
  * @param buf 将要写入到硬盘中的数据
  * @param sec_cnt 需要写入的扇区数
  */
@@ -433,7 +434,10 @@ void identify_disk(disk_t *hd){
 int32_t ext_lba_base = 0;           ///< 用于记录总扩展分区的起始lba, 用于partition_scan
 
 /**
- * @brief partition_scan是一个递归函数, 该函数会递归的扫描hd指向的硬盘中的所有分区表, 并将分区表扇区作为节点插入到partition_list中
+ * @brief partition_scan是一个递归函数, 该函数会递归的扫描hd指向的硬盘中的所有分区表, 并将分区表扇区作为节点插入到partition_list中.
+ *      注意, 该函数只会初始化partition_t中的start_lba, sec_cnt和my_disk这三个项, 不会填充超级块sb中的信息, sb中的信息将在fs中的
+ *      mount_partition时候从磁盘中读取并填入内存
+ *          
  * 
  * @param hd 要扫描的硬盘
  * @param ext_lba 分区表所在的扇区号, 第一次被调用时要设置为0, 即硬盘的MBR所在的扇区号
@@ -468,6 +472,9 @@ void partition_scan(disk_t *hd, uint32_t ext_lba){
                 list_append(&partition_list, &hd->prim_parts[p_no].part_tag);
                 // 记录分区信息
                 sprintf(hd->prim_parts[p_no].name, "%s%d", hd->name, p_no + 1);
+
+                // 初始化未初始化的super_block
+                // hd->prim_parts[p_no].sb = (super_block_t*) NULL;
                 p_no++;
                 ASSERT(p_no < 4);
             } else {                                // 逻辑分区
@@ -478,6 +485,9 @@ void partition_scan(disk_t *hd, uint32_t ext_lba){
                 list_append(&partition_list, &hd->logic_parts[l_no].part_tag);
                 // 记录分区信息
                 sprintf(hd->logic_parts[l_no].name, "%s%d", hd->name, l_no + 5);        // 主分区是1-4, 逻辑分区从5开始
+
+                // 初始化未初始化的super_block
+                // hd->logic_parts[l_no].sb = (super_block_t*) NULL;
                 l_no++;
                 if (l_no >= 8){
                     kprintf("Overmuch logic partition detected! Only support 8 logic partiton now!");
