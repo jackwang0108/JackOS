@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "string.h"
 #include "kstdio.h"
+#include "ioqueue.h"
 #include "console.h"
 
 
@@ -627,6 +628,7 @@ int32_t sys_write(int32_t fd, const void *buf, uint32_t count){
     }
 }
 
+extern ioqueue_t kbd_buf;
 
 /**
  * @brief sys_read是read系统的调用的实现函数. 用于从fd指向的文件中读取count个字节到buf中
@@ -637,13 +639,25 @@ int32_t sys_write(int32_t fd, const void *buf, uint32_t count){
  * @return int32_t 若读取成功, 则返回读取的字节数; 若读取失败, 则返回 -1
  */
 int32_t sys_read(int32_t fd, void *buf, uint32_t count){
-    if (fd < 0){
+    ASSERT(buf != NULL);
+    int ret = -1;
+    if (fd < 0 || fd == stdout_no || fd == stderr_no){
         kprintf("%s: fd error\n", __func__);
         return -1;
+    } else if (fd == stdin_no){
+        char *buffer = buf;
+        uint32_t byte_read = 0;
+        while (byte_read < count){
+            *buffer = ioq_getchar(&kbd_buf);
+            byte_read++;
+            buffer++;
+        }
+        ret = (byte_read == 0 ? -1 : (int32_t)byte_read);
+    } else {
+        uint32_t _fd = fd_local2global(fd);
+        ret = file_read(&file_table[_fd], buf, count);
     }
-    ASSERT(buf != NULL);
-    uint32_t _fd = fd_local2global(fd);
-    return file_read(&file_table[_fd], buf, count);
+    return ret;
 }
 
 
