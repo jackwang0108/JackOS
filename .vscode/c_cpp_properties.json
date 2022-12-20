@@ -10,11 +10,11 @@
                 "${workspaceFolder}/lib/kernel",
                 "${workspaceFolder}/lib/user",
                 "${workspaceFolder}/userprog",
-                "${workspaceFolder}/fs"
+                "${workspaceFolder}/fs",
+                "${workspaceFolder}/shell"
             ],
             "defines": [],
-            // "compilerPath": "${workspaceFolder}/tools/bin/i686-elf-gcc",
-            "compilerPath": "/home/jack/projects/ElephantBook/tools/bin/i686-elf-gcc",
+            "compilerPath": "${workspaceFolder}/tools/bin/i686-elf-gcc",
             "cStandard": "gnu17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "gcc-x86",

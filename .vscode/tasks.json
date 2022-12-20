@@ -27,7 +27,8 @@
             "label": "make-all",
             "command": "make",
             "args": [
-                "${input:gdb}",
+                // "${input:gdb}",
+                "with-gdb",
                 "-f",
                 "makefile",
             ],
@@ -79,8 +80,8 @@
             "label": "make-clean",
             "command": "make",
             "args": [
-                // "clean",
-                "clean-os",
+                "clean",
+                // "clean-os",
                 // "clean-fs",
                 // "clean-build",
             ],

@@ -26,7 +26,13 @@
         "inode.h": "c",
         "super_block.h": "c",
         "file.h": "c",
-        "test.h": "c"
+        "test.h": "c",
+        "fork.h": "c",
+        "shell.h": "c",
+        "exec.h": "c",
+        "assert.h": "c",
+        "tss.h": "c",
+        "wait_exit.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "makefile.launchConfigurations": [
