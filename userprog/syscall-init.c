@@ -4,6 +4,11 @@
 #include "syscall.h"
 #include "console.h"
 #include "string.h"
+#include "fs.h"
+#include "fork.h"
+#include "memory.h"
+#include "exec.h"
+#include "wait_exit.h"
 
 #define syscall_nr 32
 
@@ -23,35 +28,21 @@ uint32_t  sys_getpid(void){
 
 
 /**
- * @brief sys_write是write系统调用的实现函数. 用于向fd指定的文件中写入buf中count个字节的数据
+ * @brief sys_putchar是putchar系统调用的执行函数, 用于输出一个字符
  * 
- * @param fd 需要写入的文件描述符
- * @param buf 需要写入的数据所在的缓冲区
- * @param count 需要写入的字节数
- * @return int32_t 成功写入的字节数
+ * @param char_ascii 需要输出的字符的Ascii码
  */
-extern int32_t sys_write(int32_t fd, const void *buf, uint32_t count);
+void sys_putchar(char char_ascii){
+    console_put_char(char_ascii);
+}
 
 
 /**
- * @brief sys_malloc是malloc系统调用的实现函数, 用于在当前进程的堆中申请size个字节的内存, 定义在memory.c中
- * 
- * @details 开启虚拟内存以后, 只有真正的分配物理页, 在页表中添加物理页和虚拟页的映射才会接触到物理页,
- *          除此以外所有分配内存, 分配的都是虚拟内存
- * 
- * @param size 要申请的内存字节数
- * @return void* 若分配成功, 则返回申请得到的内存的首地址; 失败则返回NULL
+ * @brief sys_clear是clear系统调用的执行函数, 用于清空当前屏幕
  */
-extern void* sys_malloc(uint32_t size);
-
-
-/**
- * @brief sys_free用于释放sys_malloc分配的内存. 定义在memory.c中
- * 
- * @param ptr 指向由sys_malloc分配的物理内存
- */
-extern void sys_free(void* ptr);
-
+void sys_clear(void){
+    cls_screen();
+}
 
 /**
  * @brief syscall_init 用于初始化系统调用, 即在syscall_table中注册各个系统调用
@@ -66,5 +57,26 @@ void syscall_init(void){
     syscall_table[SYS_WRITE] = sys_write;
     syscall_table[SYS_MALLOC] = sys_malloc;
     syscall_table[SYS_FREE] = sys_free;
+    syscall_table[SYS_OPEN] = sys_open;
+    syscall_table[SYS_CLOSE] = sys_close;
+    syscall_table[SYS_READ] = sys_read;
+    syscall_table[SYS_LSEEK] = sys_lseek;
+    syscall_table[SYS_UNLINK] = sys_unlink;
+    syscall_table[SYS_MKDIR] = sys_mkdir;
+    syscall_table[SYS_OPENDIR] = sys_opendir;
+    syscall_table[SYS_CLOSEDIR] = sys_closedir;
+    syscall_table[SYS_READDIR] = sys_readdir;
+    syscall_table[SYS_REWINDDIR] = sys_rewinddir;
+    syscall_table[SYS_RMDIR] = sys_rmdir;
+    syscall_table[SYS_GETCWD] = sys_getcwd;
+    syscall_table[SYS_CHDIR] = sys_chdir;
+    syscall_table[SYS_STAT] = sys_stat;
+    syscall_table[SYS_FORK] = sys_fork;
+    syscall_table[SYS_PUTCHAR] = sys_putchar;
+    syscall_table[SYS_CLEAR] = sys_clear;
+    syscall_table[SYS_PS] = sys_ps;
+    syscall_table[SYS_EXECV] = sys_execv;
+    syscall_table[SYS_WAIT] = sys_wait;
+    syscall_table[SYS_EXIT] = sys_exit;
     put_str("syscall_init done\n");
 }

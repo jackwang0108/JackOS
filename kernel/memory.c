@@ -331,6 +331,49 @@ void *get_a_page(pool_flags_t pf, uint32_t vaddr){
 
 
 /**
+ * @brief get_a_page_without_opvaddrbitmap用于从内核物理内存池或者用户物理内存池中分配一个页并将该页与虚拟地址vaddr所属的虚拟页绑定.
+ *        get_a_page_without_opvaddrbitmap和get_a_page的区别就是该函数不会操作虚拟地址位图.
+ *        即该函数会分配一个物理页, 然后在当前的页目录中添加vaddr和申请得到的物理页的映射.
+ *        该函数专门用于fork是分配内存用
+ * 
+ * @param pf 分配页的内存池
+ * @param vaddr 需要绑定的地址
+ * @return void* 被绑定后的地址，等于(void*) vaddr
+ */
+void *get_a_page_without_opvaddrbitmap(pool_flags_t pf, uint32_t vaddr){
+    pool_t *mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
+    mutex_acquire(&mem_pool->mutex);
+    void *page_phyaddr = palloc(mem_pool);
+    if (page_phyaddr == NULL){
+        mutex_release(&mem_pool->mutex);
+        return NULL;
+    }
+    page_table_add((void*)vaddr, page_phyaddr);
+    mutex_release(&mem_pool->mutex);
+    return (void*)vaddr;
+}
+
+
+/**
+ * @brief free_a_phy_page用于将pg_phy_page执指向的物理页的位图清0
+ * 
+ * @param pg_phy_page 需要在位图中清0的物理页地址
+ */
+void free_a_phy_page(uint32_t pg_phy_page){
+    pool_t *mem_pool;
+    uint32_t bit_idx = 0;
+    if (pg_phy_page >= user_pool.phy_addr_start){
+        mem_pool = &user_pool;
+        bit_idx = (pg_phy_page - user_pool.phy_addr_start) / PG_SIZE;
+    } else {
+        mem_pool = &kernel_pool;
+        bit_idx = (pg_phy_page - kernel_pool.phy_addr_start) / PG_SIZE;
+    }
+    bitmap_set(&mem_pool->pool_bitmap, bit_idx, 0);
+}
+
+
+/**
  * @brief addr_v2p用于将虚拟地址转为物理地址
  * 
  * @param vaddr 需要转换的虚拟地址
@@ -515,6 +558,7 @@ void *malloc_page(pool_flags_t pf, uint32_t pg_cnt){
     //      2. 然后需要在物理内存池中申请得到一个物理页
     //      3. 最后在页表中完成虚拟页和物理页的映射, 即完成虚拟地址转物理地址
 
+    // 分配虚拟页
     void* vaddr_start = vaddr_get(pf, pg_cnt);
     if (vaddr_start == NULL)
         return NULL;
@@ -522,7 +566,7 @@ void *malloc_page(pool_flags_t pf, uint32_t pg_cnt){
     uint32_t vaddr = (uint32_t) vaddr_start, cnt = pg_cnt;
     pool_t* mem_pool = pf & PF_KERNEL ? &kernel_pool : &user_pool;
 
-    // 对每个物理页进行映射
+    // 分配物理页, 并对每个物理页进行映射
     while (cnt-- > 0){
         void *page_phyaddr = palloc(mem_pool);
         // 如果申请物理页失败，已经获得虚拟页要归还，后面再实现，也可以实现换页
@@ -717,12 +761,12 @@ void* sys_malloc(uint32_t size){
             }
             // 初始化arena
             memset(a, 0, PG_SIZE);
-            a->desc = &descs[desc_idx];
-            a->large = false;
-            a->free_cnt = descs[desc_idx].blocks_per_arena;
 
             // 下面将arena拆分成内存块, 即将内存块链接到链表中, 必须要关中断
             intr_status_t old_status = intr_disable();
+            a->desc = &descs[desc_idx];
+            a->large = false;
+            a->free_cnt = descs[desc_idx].blocks_per_arena;
             for (uint32_t block_idx = 0; block_idx < descs[desc_idx].blocks_per_arena; block_idx++){
                 b = arena2block(a, block_idx);
                 ASSERT(!elem_find(&a->desc->free_list, &b->free_elem));
@@ -770,11 +814,10 @@ void sys_free(void* ptr){
         // 下面要操作共享数据了, 所以需要锁来保护
         mutex_acquire(&mem_pool->mutex);
 
-        mem_block_t *b = ptr;
+        mem_block_t *b = (mem_block_t*)ptr;
         arena_t *a = block2arena(b);
 
         ASSERT(a->large == 0 || a->large == 1)
-    
         if (a->desc == NULL && a->large == 1)
             // 大于1024字节的内存是直接按照页的形式分配的, 释放的时候也要按照页的形式释放
             mfree_page(PF, a, a->free_cnt);
@@ -786,9 +829,9 @@ void sys_free(void* ptr){
             if (++a->free_cnt == a->desc->blocks_per_arena){
                 // 依次释放该Arena中的全部mem_block
                 for (uint32_t block_idx = 0; block_idx < a->desc->blocks_per_arena; block_idx++){
-                    mem_block_t *b = arena2block(a, block_idx);
-                    ASSERT(elem_find(&a->desc->free_list, &b->free_elem));
-                    list_remove(&b->free_elem);
+                    mem_block_t *bb = arena2block(a, block_idx);
+                    ASSERT(elem_find(&a->desc->free_list, &bb->free_elem));
+                    list_remove(&bb->free_elem);
                 }
                 // 释放arena所在的页
                 mfree_page(PF, a, 1);

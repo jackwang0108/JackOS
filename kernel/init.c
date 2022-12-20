@@ -10,6 +10,7 @@
 #include "syscall-init.h"
 #include "ide.h"
 #include "fs.h"
+#include "interrupt.h"
 
 void init_all(void){
     put_str("init_all\n");
@@ -19,8 +20,9 @@ void init_all(void){
     timer_init();               // 初始化PIT（Programmable Interval Timer）
     console_init();             // 初始化控制台
     keyboard_init();            // 初始化键盘
-    ide_init();                 // 初始化硬盘
-    filesys_init();             // 初始化文件系统
     tss_init();
     syscall_init();
+    intr_enable();              // 开启中断
+    ide_init();                 // 初始化硬盘
+    filesys_init();             // 初始化文件系统
 }

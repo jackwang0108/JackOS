@@ -49,7 +49,8 @@ void start_process(void* filename_){
 
 
 /**
- * @brief page_dir_activate用于重新设置页目录寄存器cr3
+ * @brief page_dir_activate用于重新设置页目录寄存器cr3. 
+ *        该函数具体干的事情: 将tcb中的pgdir的物理地址赋值给cr3寄存器
  * 
  * @param tcb 要安装页表寄存器的进程
  */

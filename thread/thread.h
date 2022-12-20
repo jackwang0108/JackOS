@@ -15,13 +15,13 @@
 #include "list.h"
 #include "bitmap.h"
 #include "memory.h"
+#include "types.h"
 
+#define TASK_NAME_LEN 16
 #define MAX_FILE_OPEN_PER_PROC 8
 
 /// 线程函数的模板
 typedef void thread_func(void*);
-/// 进程或者线程的pid
-typedef uint16_t pid_t;
 
 
 // 定义在thread.c中
@@ -113,6 +113,8 @@ typedef struct __task_struct {
     uint32_t *self_kstack;
     /// 内核线程的PID
     pid_t pid;
+    /// 内核线程的父线程的PID
+    pid_t parent_pid;
     /// 内核线程TCB的状态
     task_status_t status;
     /// 内核线程TCB的名字
@@ -149,11 +151,38 @@ typedef struct __task_struct {
     /* ------------------------------ Miscellaneous ------------------------------ */
     /// 当前进程所在的工作目录的inode编号
     uint32_t cwd_inode_no;
+    /// 当前进程运行结束后的返回值
+    int8_t exit_status;
 
 
     /// 栈的边界标记，用于检测栈是否溢出，栈指针被初始化到当前页的最后一个字节，而后向上增长，即向低地址增长
     uint32_t stack_magic;
 } task_struct_t;
+
+
+/**
+ * @brief fork_pid用于为子进程分配PID
+ * 
+ * @return pid_t 子进程分配得到的PID
+ */
+pid_t fork_pid(void);
+
+
+/**
+ * @brief release_pid用于释放PID
+ * 
+ * @param pid 需要释放的PID号
+ */
+void release_pid(pid_t pid);
+
+
+/**
+ * @brief pid2thread用于返回给定pid所表示的pcb
+ * 
+ * @param pid 需要的tcb的pid
+ * @return task_struct_t* 若查找成功, 则返回该tcb; 若失败, 则返回NULL
+ */
+task_struct_t *pid2thread(int32_t pid);
 
 
 /**
@@ -184,6 +213,16 @@ void thread_init(void);
  * @param func_arg 将要传入函数function的参数
  */
 void thread_create(task_struct_t* tcb, thread_func function, void *func_arg);
+
+
+/**
+ * @brief thread_exit用于回收tcb指向的tcb和页表, 并将其从调度队列中去除
+ * 
+ * @param tcb 需要回收的tcb
+ * @param need_schedule 回收tcb后是否需要立即进行调度
+ */
+void thread_exit(task_struct_t *tcb, bool need_schedule);
+
 
 /**
  * @brief 将当前进程从CPU上换下，并且设置其状态为status
@@ -269,4 +308,17 @@ void init_thread(task_struct_t *tcb, char *name, int time_slice);
  * @note schedule被调用的第二个地方是thread_block，thread_block中主动修改进程当前的状态，然后此时进程主动放弃
  */
 void schedule(void);
+
+
+/**
+ * @brief sys_ps是ps系统调用的实现函数. 用于遍历thread_all_list, 输出进程信息
+ * 
+ */
+void sys_ps(void);
+
+
+/**
+ * @brief init是第一个用户进程
+ */
+void init(void);
 #endif

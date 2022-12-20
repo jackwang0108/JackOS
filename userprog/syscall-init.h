@@ -26,4 +26,17 @@ uint32_t  sys_getpid(void);
 void syscall_init(void);
 
 
+/**
+ * @brief sys_putchar是putchar系统调用的执行函数, 用于输出一个字符
+ * 
+ * @param char_ascii 需要输出的字符的Ascii码
+ */
+void sys_putchar(char char_ascii);
+
+/**
+ * @brief sys_clear是clear系统调用的执行函数, 用于清空当前屏幕
+ */
+void sys_clear(void);
+
+
 #endif

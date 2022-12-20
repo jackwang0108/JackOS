@@ -1,6 +1,7 @@
 #include "string.h"
 #include "global.h"
-#include "debug.h"
+#include "assert.h"
+
 
 /**
  * @brief memset将dst_起始的size个字节置为value
@@ -10,7 +11,7 @@
  * @param size 要设置多少个字节
  */
 void memset(void *dst_, uint8_t value, uint32_t size){
-    ASSERT(dst_ != NULL);
+    assert(dst_ != NULL);
     uint8_t* dst = (uint8_t *)dst_;
     while(size-- > 0){
         *dst++ = value;
@@ -26,7 +27,7 @@ void memset(void *dst_, uint8_t value, uint32_t size){
  * @param size 复制的字节数
  */
 void memcpy(void *dst_, const void* src_, uint32_t size){
-    ASSERT(dst_ != NULL && src_ != NULL);
+    assert(dst_ != NULL && src_ != NULL);
     uint8_t* dst = dst_;
     const uint8_t* src = src_;
     while (size-- > 0)
@@ -44,7 +45,7 @@ void memcpy(void *dst_, const void* src_, uint32_t size){
 int memcmp(const void *a_, const void *b_, uint32_t size){
     const char* a = a_;
     const char* b = b_;
-    ASSERT(a != NULL && b != NULL);
+    assert(a != NULL && b != NULL);
     while (size-- > 0){
         if (*a != *b)
             return *a > *b ? 1 : -1;
@@ -62,7 +63,7 @@ int memcmp(const void *a_, const void *b_, uint32_t size){
  * 
  */
 char* strcpy(char *des_, const char *src_){
-    ASSERT(des_ != NULL && src_ != NULL);
+    assert(des_ != NULL && src_ != NULL);
     char *r = des_;
     while ((*des_++ = *src_++));
     return r;
@@ -75,7 +76,7 @@ char* strcpy(char *des_, const char *src_){
  * @return uint32_t 字符串的长度
  */
 uint32_t strlen(const char* str){
-    ASSERT(str != NULL);
+    assert(str != NULL);
     const char* p = str;
     while(*p++);
     return (p - str - 1);
@@ -90,7 +91,7 @@ uint32_t strlen(const char* str){
  * @return int8_t 若a=b，则返回0；若a<b，则返回-1；若a>b，则返回1
  */
 int8_t strcmp(const char* a, const char* b){
-    ASSERT(a != NULL && b != NULL);
+    assert(a != NULL && b != NULL);
     while(*a != 0 && *a == *b)
         a++, b++;
     return *a < *b ? -1 : *a > *b;
@@ -105,7 +106,7 @@ int8_t strcmp(const char* a, const char* b){
  * @return char* 
  */
 char *strcat(char *dst_, const char* src_){
-    ASSERT(dst_ != NULL && src_ != NULL);
+    assert(dst_ != NULL && src_ != NULL);
     char *str = dst_;
     // 先让str移动到最后
     while (*str++);
@@ -125,7 +126,7 @@ char *strcat(char *dst_, const char* src_){
  * @note strchr相当于返回字符ch第一次出现的地址
  */
 char* strchr(const char* str, const uint8_t ch){
-    ASSERT(str != NULL);
+    assert(str != NULL);
     while (*str != 0){
         if(*str == ch)
             return (char*) str;
@@ -144,7 +145,7 @@ char* strchr(const char* str, const uint8_t ch){
  * @note strrchr相当于返回字符ch最后一次出现的地址
  */
 char* strrchr(const char* str, const uint8_t ch){
-    ASSERT(str != NULL);
+    assert(str != NULL);
     const char* last_char = NULL;
     while (*str != 0){
         if (*str == ch)
@@ -163,7 +164,7 @@ char* strrchr(const char* str, const uint8_t ch){
  * @return uint32_t 字符ch出现的次数 
  */
 uint32_t strchrs(const char* str, uint8_t ch){
-    ASSERT(str != NULL);
+    assert(str != NULL);
     uint32_t ch_cnt = 0;
     const char* p = str;
     while (*p != 0){

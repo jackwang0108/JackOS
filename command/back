@@ -1,0 +1,47 @@
+BASE = ..
+LIB_DIR = $(BASE)/lib
+BUILD_DIR = $(BASE)/build
+PREFIX = /home/jack/projects/JackOS/tools/bin
+
+LD = $(PREFIX)/i686-elf-ld
+CC = $(PREFIX)/i686-elf-gcc
+
+LIB = -I $(LIB_DIR)
+CFLAGS = -O0 $(LIB) -g -Wall -c -fno-builtin -W -Wstrict-prototypes -Wmissing-prototypes -Wsystem-headers -Werror=incompatible-pointer-types
+
+OBJS = $(BUILD_DIR)/string.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/stdio.o $(BUILD_DIR)/assert.o
+
+
+############################################################
+##################### 编译C语言代码 ##########################
+############################################################
+
+$(BUILD_DIR)/_prog_no_arg.o: prog_no_arg.c\
+		$(LIB_DIR)/stdio.h
+	$(CC) $(CFLAGS) $< -o $@
+
+
+
+############################################################
+###################### 链接可执行文件 ########################
+############################################################
+
+$(BUILD_DIR)/_prog_no_arg: $(BUILD_DIR)/_prog_no_arg.o
+	$(LD) $< $(OBJS) -e main -o $@
+
+
+
+############################################################
+####################### 写入到文件中 #########################
+############################################################
+
+write_prog_no_arg: $(BUILD_DIR)/_prog_no_arg
+	dd  if=$(BUILD_DIR)/_prog_no_arg \
+		of=$(BUILD_DIR)/../JackOS.img \
+		bs=512 \
+		count=$(shell ls -l $< | awk '{printf("%d", ($$5+511)/512)}')\
+		seek=300 \
+		conv=notrunc
+
+
+write_all: write_prog_no_arg

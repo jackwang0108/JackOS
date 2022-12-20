@@ -2,16 +2,24 @@
 #include "global.h"
 #include "string.h"
 #include "debug.h"
+#include "file.h"
 #include "interrupt.h"
 #include "print.h"
 #include "process.h"
 #include "console.h"
 #include "sync.h"
+#include "stdio.h"
+#include "syscall.h"
 
 
+uint8_t pid_bitmap_bits[128] = {0};
 
-/// @brief next_pid是全局的pid线程池, 每次创建新进程的时候都会+1. 由于是全局共享的数据, 因此需要使用锁来保护
-mutex_t next_pid_lock;                              ///< next_pid的锁
+struct {
+    bitmap_t pid_bitmap;
+    uint32_t pid_start;
+    mutex_t pid_mutex;
+} pid_pool;
+
 
 /**
  * @brief main_thread是内核的主线程，目前为止都是使用的汇编程序jmp到内核直接运行的
@@ -30,18 +38,84 @@ list_elem_t *thread_tag;                    // 用于标记当前正在运行中
 // 该函数实际上是一个汇编函数，调用的时候C语言会自动帮我们压栈，汇编函数最后我们要清理栈
 extern void switch_to(task_struct_t *cur, task_struct_t *next);
 
+// 第一个用户进程
+extern void init(void);
 
+
+/**
+ * @brief pid_pool_init用于初始化pid池
+ */
+static void pid_pool_init(void){
+    pid_pool.pid_start = 1;
+    pid_pool.pid_bitmap.bits = pid_bitmap_bits;
+    pid_pool.pid_bitmap.btmp_byte_len = 128;
+    bitmap_init(&pid_pool.pid_bitmap);
+    mutex_init(&pid_pool.pid_mutex);
+}
+ 
 /**
  * @brief allocate_pid用于为内核线程分配PID
  * 
  * @return pid_t 线程分配得到的PID
  */
 static pid_t allocate_pid(void){
-    static pid_t next_pid = 0;
-    mutex_acquire(&next_pid_lock);
-    next_pid++;
-    mutex_release(&next_pid_lock);
-    return next_pid;
+    mutex_acquire(&pid_pool.pid_mutex);
+    int32_t bit_idx = bitmap_scan(&pid_pool.pid_bitmap, 1);
+    bitmap_set(&pid_pool.pid_bitmap, bit_idx, 1);
+    mutex_release(&pid_pool.pid_mutex);
+    return pid_pool.pid_start + bit_idx;
+}
+
+/**
+ * @brief release_pid用于释放PID
+ * 
+ * @param pid 需要释放的PID号
+ */
+void release_pid(pid_t pid){
+    mutex_acquire(&pid_pool.pid_mutex);
+    int32_t bit_idx = pid - pid_pool.pid_start;
+    bitmap_set(&pid_pool.pid_bitmap, bit_idx, 0);
+    mutex_release(&pid_pool.pid_mutex);
+}
+
+
+/**
+ * @brief pid_check用于检查elem所表示的线程的pid是否和给定的pid相同
+ * 
+ * @param elem 需要检查的线程的elem
+ * @param pid 给定的pid
+ * @return true 相符
+ * @return false 不相符
+ */
+static bool pid_check(list_elem_t *elem, int32_t pid){
+    task_struct_t *tcb = elem2entry(task_struct_t, all_list_tag, elem);
+    if (tcb->pid == pid)
+        return true;
+    return false;
+}
+
+
+/**
+ * @brief fork_pid用于为子进程分配PID
+ * 
+ * @return pid_t 子进程分配得到的PID
+ */
+pid_t fork_pid(void){
+    return allocate_pid();
+}
+
+/**
+ * @brief pid2thread用于返回给定pid所表示的pcb
+ * 
+ * @param pid 需要的tcb的pid
+ * @return task_struct_t* 若查找成功, 则返回该tcb; 若失败, 则返回NULL
+ */
+task_struct_t *pid2thread(int32_t pid){
+    list_elem_t *elem = list_traversal(&thread_all_list, pid_check, pid);
+    if (elem == NULL)
+        return NULL;
+    task_struct_t *tcb = elem2entry(task_struct_t, all_list_tag, elem);
+    return tcb;
 }
 
 
@@ -164,6 +238,41 @@ void thread_create(task_struct_t* tcb, thread_func function, void *func_arg){
 
 
 /**
+ * @brief thread_exit用于回收tcb指向的tcb和页表, 并将其从调度队列中去除
+ * 
+ * @param tcb 需要回收的tcb
+ * @param need_schedule 回收tcb后是否需要立即进行调度
+ */
+void thread_exit(task_struct_t *tcb, bool need_schedule){
+    // 保险起见, 关中断
+    intr_disable();
+
+    // 修改状态
+    tcb->status = TASK_DIED;
+    // 检查线程队列
+    if (elem_find(&thread_ready_list, &tcb->general_tag))       // 可能在就绪队列中, 所以得先检查
+        list_remove(&tcb->general_tag);
+    list_remove(&tcb->all_list_tag);                            // 一定在所有队列中
+
+    // 回收页目录
+    if (tcb->pgdir != NULL)
+        mfree_page(PF_KERNEL, tcb->pgdir, 1);
+
+    // 回收TCB占用的页目录
+    if (tcb != main_thread)
+        mfree_page(PF_KERNEL, tcb, 1);
+
+    // 归还PID
+    release_pid(tcb->pid);
+
+    if (need_schedule){
+        schedule();
+        PANIC("thread_exit: should not be here\n");
+    }
+}
+
+
+/**
  * @brief init_thread用于初始化线程的TCB，使得调度器能够进行调度。该函数完成的事为：
 
  *          1. TCB所占用的内存区域清零
@@ -181,6 +290,8 @@ void init_thread(task_struct_t *tcb, char *name, int time_slice){
     memset(tcb, 0, sizeof(*tcb));
     // 分配PID
     tcb->pid = allocate_pid();
+    // 父进程PID默认设置为-1
+    tcb->parent_pid = -1;
     strcpy(tcb->name, name);
 
     // 操作系统的主程序也被封装成一个线程，并且就是调度器运行的第一个进程
@@ -367,12 +478,125 @@ void schedule(void){
     switch_to(cur, next);                                       // 任务切换
 }
 
+/**
+ * @brief init_thread用于初始化线程的TCB，使得调度器能够进行调度。该函数完成的事为：
+
+ *          1. TCB所占用的内存区域清零
+ *          2. 设置线程状态为RASK_READY, 若为内核线程，则直接设置为TASK_RUNNING
+ *          3. 初始化TCB中的数据, 包括pgdir, priority, this_tick, total_ticks, time_slice
+ *          4. 注意，TCB中的self_kstack被设置为TCB所在这这一页的页尾
+ * 
+ * @param tc 线程的TCB，要求是指向摸个虚拟页的
+ * @param name 线程的名字
+ * @param time_slice 线程的时间片大小，以时钟中断数为单位
+ * 
+ */
 void thread_init(void){
     put_str("thread init start\n");
     list_init(&thread_all_list);
     list_init(&thread_ready_list);
-    mutex_init(&next_pid_lock);
+    pid_pool_init();
+    // 创建第一个用户进程init
+    process_execute(init, "init");
+    // 创建内核进程
     make_main_thread();
     idle_thread = thread_start("idle", 10, idle, NULL);
     put_str("thread init done\n");
+}
+
+
+/**
+ * @brief pad_print用于以填充空格的方式输出buf
+ * 
+ * @param buf 将打印的字符数组
+ * @param buf_len 将打印的字符数组的长度
+ * @param ptr 将打印的字符
+ * @param format pad_print专用的格式控制字符
+ */
+static void pad_print(char *buf, int32_t buf_len, void *ptr, char format){
+    memset(buf, 0, buf_len);
+    uint8_t out_pad_0idx = 0;
+    switch (format){
+        case 's':
+            out_pad_0idx = sprintf(buf, "%s", ptr);
+            break;
+        case 'd':
+            out_pad_0idx = sprintf(buf, "%d", *((int16_t*)ptr));
+            break;
+        case 'x':
+            out_pad_0idx = sprintf(buf, "%x", *((uint32_t*)ptr));
+    }
+    while (out_pad_0idx < buf_len)
+        buf[out_pad_0idx++] = ' ';
+    sys_write(stdout_no, buf, buf_len - 1);
+}
+
+
+/**
+ * @brief elem2thread_info是list_traversal的遍历函数, 用于输出一个线程的信息
+ * 
+ * @param elem tcb的list_elem
+ * @return true 终止遍历用
+ * @return false 终止遍历用
+ */
+static bool elem2thread_info(list_elem_t *elem, int arg __attribute__((unused))){
+    task_struct_t *pthread = elem2entry(task_struct_t, all_list_tag, elem);
+
+    // 每次打印16个字符
+    char out_pad[16] = {0};
+
+    // 向屏幕上打印进程的PID
+    pad_print(out_pad, 16, &pthread->pid, 'd');
+
+    // 向屏幕上打印父进程PID
+    if (pthread->parent_pid == -1)
+        pad_print(out_pad, 16, "NULL", 's');
+    else
+        pad_print(out_pad, 16, &pthread->parent_pid, 'd');
+    
+    // 向屏幕上打印进程的运行信息
+    switch (pthread->status){
+        case 0:
+            pad_print(out_pad, 16, "RUNNING", 's');
+            break;
+        case 1:
+            pad_print(out_pad, 16, "READY", 's');
+            break;
+        case 2:
+            pad_print(out_pad, 16, "BLOCKED", 's');
+            break;
+        case 3:
+            pad_print(out_pad, 16, "WAITING", 's');
+            break;
+        case 4:
+            pad_print(out_pad, 16, "HANGING", 's');
+            break;
+        case 5:
+            pad_print(out_pad, 16, "DIED", 's');
+            break;
+    }
+
+    // 向屏幕上打印进程的运行时间
+    pad_print(out_pad, 16, &pthread->total_ticks, 'x');
+
+    // 向屏幕上打印进程名
+    memset(out_pad, 0, 16);
+    ASSERT(strlen(pthread->name) < 17);
+    memcpy(out_pad, pthread->name, strlen(pthread->name));
+    strcat(out_pad, "\n");
+    sys_write(stdout_no, out_pad, strlen(out_pad));
+
+    // return false才会继续打印
+    return false;
+}
+
+
+/**
+ * @brief sys_ps是ps系统调用的实现函数. 用于遍历thread_all_list, 输出进程信息
+ * 
+ */
+void sys_ps(void){
+    char *ps_title = "PID            ParentPID      STAT           TICKS          COMMAND\n";
+    sys_write(stdout_no, ps_title, strlen(ps_title));
+    list_traversal(&thread_all_list, elem2thread_info, 0);
 }

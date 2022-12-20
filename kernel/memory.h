@@ -21,7 +21,7 @@
 // 虚拟内存(地址)池，用于虚拟地址管理，loader中建立了页目录，但是只分配了一个页(为了操作系统)
 typedef struct __virtual_addr_t {
     bitmap_t vaddr_bitmap;                      // 虚拟内存的位图
-    uint32_t vaddr_start;                       // 虚拟内存的起始地址
+    uint32_t vaddr_start;                       // 虚拟内存的起始的物理地址
 } virtual_addr_t;
 
 typedef enum __pool_flags {
@@ -97,6 +97,14 @@ void *get_user_pages(uint32_t pg_cnt);
  * @return void* 被绑定后的地址，等于(void*) vaddr
  */
 void *get_a_page(pool_flags_t pf, uint32_t vaddr);
+
+
+/**
+ * @brief free_a_phy_page用于将pg_phy_page执指向的物理页的位图清0
+ * 
+ * @param pg_phy_page 需要在位图中清0的物理页地址
+ */
+void free_a_phy_page(uint32_t pg_phy_page);
 
 
 /**
@@ -226,5 +234,18 @@ void* sys_malloc(uint32_t size);
  * @param ptr 指向由sys_malloc分配的物理内存
  */
 void sys_free(void* ptr);
+
+
+
+/**
+ * @brief get_a_page_without_opvaddrbitmap用于从指定的内存池中分配一个页并将该页与虚拟地址vaddr所属的虚拟页绑定.
+ *        get_a_page_without_opvaddrbitmap和get_a_page的区别就是该函数不会操作虚拟地址位图.
+ *        该函数专门用于fork是分配内存用
+ * 
+ * @param pf 分配页的内存池
+ * @param vaddr 需要绑定的地址
+ * @return void* 被绑定后的地址，等于(void*) vaddr
+ */
+void *get_a_page_without_opvaddrbitmap(pool_flags_t pf, uint32_t vaddr);
 
 #endif

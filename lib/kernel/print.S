@@ -266,3 +266,46 @@ set_cursor:
     out dx, al
     popad
     ret
+
+
+global cls_screen
+    ; 函数 
+    ; -----------------------------------------------------------
+    ; cls_screen 用于清空屏幕
+    ; -----------------------------------------------------------
+    ; 无输入:
+    ; 无返回值:
+cls_screen:
+    pushad
+    mov ax, SELCTOR_VIDEO       ; 用户程序在start_process中gs设置为0, 每次进入中断的时候
+    mov gs, ax                  ; 在intr_exit
+
+    mov ebx, 0
+    mov ecx, 80 * 25            ; 输出空格次数
+
+    .cls:
+        mov word [gs:ebx], 0x0720   ; 黑底白字空格键
+        add ebx, 2
+        loop .cls
+
+    ; 设置光标到屏幕顶端
+    mov ebx, 0
+    .set_cursor:
+        ; 设置高八位
+        mov dx, 0x03d4
+        mov al, 0x0e
+        out dx, al
+        mov dx, 0x03d5
+        mov al, bh
+        out dx, al
+    
+        ; 设置低八位
+        mov dx, 0x03d4
+        mov al, 0x0f
+        out dx, al
+        mov dx, 0x03d5
+        mov al, bl
+        out dx, al
+
+    popad
+    ret

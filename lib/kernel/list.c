@@ -26,8 +26,7 @@ void list_insert_before(list_elem_t *before, list_elem_t *elem){
     intr_status_t old_status = intr_disable();
 
     // 访问临界区
-    while(before->prev->next != elem)
-        before->prev->next = elem;
+    before->prev->next = elem;
     elem->prev = before->prev;
     elem->next = before;
     before->prev = elem;

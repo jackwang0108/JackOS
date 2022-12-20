@@ -2,18 +2,29 @@
 
 
 void test_all(void){
-    /// Test thread
+    /* -------------------- Test kernel thread -------------------- */
     // test_kernel_thread();
 
-    /// Test user prog
+
+    /* -------------------- Test memory -------------------- */
+    test_memory();
+
+
+    /* ---------------------- Test user prog ---------------------- */
     // test_user_porg();
 
-    /// Test file system
-    test_create_close_unlink();
+    /* --------------------- Test file system --------------------- */
+    // 1. Test for creating/opening, closing and removing a file.
+    // test_create_close_unlink();      
+    // 2. Test for writing and reading a file.
     // test_write_read_lseek();
+    // 3. Test for creating and removing a directory.
     // test_mkdir_rmdir();
+    // 4. Test for opening, reading and closing a directory.
     // test_open_read_close_dir();
+    // 5. Test for 'pwd' and 'cd' system call 
     // test_getcwd_chdir();
+    // 6. Test for 'ls' system call
     // test_stat();
 }
 
@@ -86,6 +97,12 @@ void u_prog_b(void){
     while (1);
 }
 
+void u_prog_c(void){
+    int32_t fd = open("/test", O_CREAT);
+    close(fd);
+    while(1);
+}
+
 
 void test_kernel_thread(void){
     intr_status_t old_status = intr_enable();
@@ -96,8 +113,38 @@ void test_kernel_thread(void){
 
 void test_user_porg(void){
     intr_status_t old_status = intr_enable();
-    process_execute(u_prog_a, "user_prog_a");
-    process_execute(u_prog_b, "user_prog_b");
+    // process_execute(u_prog_a, "user_prog_a");
+    // process_execute(u_prog_b, "user_prog_b");
+    process_execute(u_prog_c, "user_prog_c");
+}
+
+
+void test_memory(void){
+    kprintf("Start memory test...\n");
+    uint32_t size = 16;
+    uint32_t max_pages = 3;
+    char **ptrs;
+    while (size < 20480){
+        uint32_t ptr_num = 4096 * max_pages / size + 1;
+        ptr_num = (ptr_num == 1) ? 2 : ptr_num;
+        ptrs = (char**) sys_malloc(sizeof(char*) * ptr_num);
+        if (ptrs == NULL)
+            kprintf("Malloc for ptrs failed!\n");
+
+        kprintf("Alloc %d bytes for %d times.\n", size, ptr_num);
+        kprintf("Writing...\n");
+        for (uint32_t j = 0; j < ptr_num; j++){
+            ptrs[j] = (char*) sys_malloc(size);
+            for (uint32_t i = 0; i < size - 1; i++)
+                ptrs[j][i] = 'A';
+        }
+
+        kprintf("Releasing...\n");
+        for (uint32_t j = 0; j < ptr_num; j++)
+            sys_free(ptrs[j]);
+        sys_free(ptrs);
+        size *= 2;
+    }
 }
 
 

@@ -142,7 +142,8 @@ static void general_intr_handler(uint8_t vec_nr){
             "movl %%cr2, %0"
             : "=r" (page_fault_vaddr)
         );
-        put_str("Page Fault Addr: "), put_int(page_fault_vaddr);
+        put_str("Page Fault happened because you tried to access an invalid addr: 0x");
+        put_int(page_fault_vaddr);
     } else {
     }
     put_char('\n');

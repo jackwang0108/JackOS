@@ -24,8 +24,12 @@ void k_thread_a(void *);
 void k_thread_b(void *);
 void u_prog_a(void);
 void u_prog_b(void);
+void u_prog_c(void);
 void test_user_porg(void);
 void test_kernel_thread(void);
+
+// memory test
+void test_memory(void);
 
 // file system test
 void test_create_close_unlink(void);
