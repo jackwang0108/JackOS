@@ -325,12 +325,17 @@ int32_t file_write(file_desc_t *file, const void *buf, uint32_t count){
         );
         return -1;
     }
-    uint8_t *io_buf = sys_malloc(512);
+    uint8_t *io_buf = sys_malloc(BLOCK_SIZE);
     if (io_buf == NULL){
         kprintf("file_write: sys_malloc for io_buf failed\n");
         return -1;
     }
 
+    uint32_t *all_blocks_lba = (uint32_t*)sys_malloc(BLOCK_SIZE + 48);
+    if (all_blocks_lba == NULL) {
+        kprintf("file_write: sys_malloc for all_blocks_lba failed\n");
+        return -1;
+    }
 
     // 声明变量
     const uint8_t *src = buf;               // 逐字节复制
@@ -365,14 +370,9 @@ int32_t file_write(file_desc_t *file, const void *buf, uint32_t count){
     uint32_t file_will_use_blocks = (file->fd_inode->i_size + count) / BLOCK_SIZE + 1;
     ASSERT(file_will_use_blocks <= 140);
     
-    uint32_t add_blocks = file_will_use_blocks   - file_has_used_blocks;
+    uint32_t add_blocks = file_will_use_blocks - file_has_used_blocks;
 
     // 为等下写入数据到磁盘做准备, 把等下要写入的块的lba地址写入到all_blocks_lba中
-    uint32_t *all_blocks_lba = (uint32_t*)sys_malloc(BLOCK_SIZE * 48);
-    if (all_blocks_lba == NULL) {
-        kprintf("file_write: sys_malloc for all_blocks_lba failed\n");
-        return -1;
-    }
 
     // 这里把所有要写入到块的lba地址写入到all_blocks_lba中
     // 1. 不用分配新的数据块, 数据全部写入上一次没写完的块中
@@ -445,7 +445,6 @@ int32_t file_write(file_desc_t *file, const void *buf, uint32_t count){
                 if (block_lba < 12){
                     ASSERT(file->fd_inode->i_sectors[block_idx] == 0);
                     file->fd_inode->i_sectors[block_idx] = all_blocks_lba[block_idx] = block_lba;
-                    all_blocks_lba[block_idx] = block_idx;
                 } else {
                     all_blocks_lba[block_idx] = block_lba;
                 }
@@ -476,8 +475,8 @@ int32_t file_write(file_desc_t *file, const void *buf, uint32_t count){
                 }
                 all_blocks_lba[block_idx++] = block_lba;
 
-                // 
-                block_bitmap_idx = block_bitmap_alloc(current_partition);
+                // 分配一个块后同步到硬盘
+                block_bitmap_idx = block_lba - current_partition->sb->data_start_lba;
                 bitmap_sync(current_partition, block_bitmap_idx, BLOCK_BITMAP);
             }
             // 同步一级间接块到硬盘
@@ -526,7 +525,14 @@ int32_t file_write(file_desc_t *file, const void *buf, uint32_t count){
     }
 
     // 写完后, 同步一下磁盘中的inode
-    inode_sync(current_partition, file->fd_inode, io_buf);
+    void *inode_buf = sys_malloc(BLOCK_SIZE * 2);
+    if (inode_buf == NULL){
+        kprintf("%s: sys_malloc for inode_buf failed!\n", __func__);
+        kprintf("%s: inode failed sync to disk!!\n", __func__);
+    } else {
+        inode_sync(current_partition, file->fd_inode, inode_buf);
+        sys_free(inode_buf);
+    }
 
     // 释放缓冲区
     sys_free(all_blocks_lba);
