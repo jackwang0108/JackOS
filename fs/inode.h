@@ -3,20 +3,9 @@
 
 #include "ide.h"
 #include "list.h"
+#include "types.h"
 #include "stdint.h"
 
-typedef struct __inode_t {
-    uint32_t i_no;              ///< inode编号
-    /// inode和文件一一对应, 因此不同的文件i_size的含义不同:
-    //      1. 若此inode表示的文件是目录文件, 则i_size表示该目录下所有目录项大小之和
-    //      2. 若此inode表示的文件是一般文件, 则i_size表示该文件的大小
-    uint32_t i_size;
-    uint32_t i_open_cnt;        ///< 该inode被打开的次数
-    bool write_deny;            ///< 该inode能否被写入, 因此写inode不能并行, 这里是已经有人在写inode的标识
-    uint32_t i_sectors[13];     ///< 存储该inode表示的文件的数据的扇区号, i_sectors[0-11]是直接块, i_sectors[12]是一级间接块
-
-    list_elem_t inode_tag;      ///< inode在打开的inode链表中的标记
-} inode_t;
 
 
 /**

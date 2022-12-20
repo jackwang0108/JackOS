@@ -126,13 +126,13 @@ inode_t *inode_open(partition_t *partition, uint32_t inode_no){
     cur->pgdir = cur_pgdir_backup;
 
     char *inode_buf;
-    uint32_t sector_to_read = 0;
-    if (inode_pos.multi_sec)
-        sector_to_read = 2;
-    else
-        sector_to_read = 1;
-    inode_buf = (char *) sys_malloc(SECTOR_SIZE * sector_to_read);
-    ide_read(partition->my_disk, inode_pos.sec_lba, inode_buf, sector_to_read);
+    if (inode_pos.multi_sec){
+        inode_buf = (char *)sys_malloc(1024);
+        ide_read(partition->my_disk, inode_pos.sec_lba, inode_buf, 2);
+    } else {
+        inode_buf = (char *) sys_malloc(512);
+        ide_read(partition->my_disk, inode_pos.sec_lba, inode_buf, 1);
+    }
     // 将读出的数据复制到内核内存中的inode_t中
     memcpy(inode_found, inode_buf + inode_pos.off_size, sizeof(inode_t));
 
@@ -264,7 +264,7 @@ void inode_release(partition_t *partition, uint32_t inode_no){
     
     // 其实不需要磁盘清零的, 因为会覆盖
     void *io_buf = sys_malloc(1024);
-    inode_delete(partition, inode_no, INODE_BITMAP);
+    inode_delete(partition, inode_no, io_buf);
     sys_free(io_buf);
 
     inode_close(inode_to_delete);

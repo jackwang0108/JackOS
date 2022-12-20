@@ -252,6 +252,9 @@ bool mount_partition(list_elem_t *elem, int arg){
         list_init(&current_partition->open_inodes);
         kprintf("mount %s done!\n", partition->name);
 
+        // 释放内存
+        sys_free(sb_buf);
+
         // 停止遍历
         return true;
     }
@@ -350,9 +353,12 @@ void filesys_init(void){
 
 /**
  * @brief path_parse用于获得文件路径pathname的顶层路径, 顶层路径存入到name_store中
+ *        举一个例子如下: 
+ *          pathname="/home/jack", char name_store[10]
+ *          path_parse(pathname, name_store) -> return "/jack", *name_store="home"
  * 
  * @example pathname="/home/jack", char name_store[10]
- *          path_parse(pathname, name_store) -> return "/jack", *name_store="jack"
+ *          path_parse(pathname, name_store) -> return "/jack", *name_store="home"
  * 
  * @param pathname 需要解析的文件路径
  * @param name_store pathname中的顶层路径
@@ -396,8 +402,6 @@ uint32_t path_depth_cnt(char* pathname){
     return depth;
 }
 
-// 定义在dir.c中
-extern dir_t root_dir;
 
 /**
  * @brief search_file用于搜索给定的文件. 若能找到, 则返回要搜索的文件的inode号, 若找不到则返回-1
@@ -570,7 +574,7 @@ int32_t sys_open(const char *pathname, uint8_t flags){
  * @param local_fd 需要转换的局部文件描述符
  * @return uint32_t 转换后的全局文件描述符
  */
-static uint32_t fd_local2global(uint32_t local_fd){
+uint32_t fd_local2global(uint32_t local_fd){
     task_struct_t *cur = running_thread();
     int32_t global_fd = cur->fd_table[local_fd];
     ASSERT(0 <= global_fd && global_fd < MAX_FILE_OPEN_PER_PROC);

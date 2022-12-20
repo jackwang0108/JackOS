@@ -10,35 +10,8 @@
 #include "list.h"
 #include "stdint.h"
 #include "global.h"
+#include "types.h"
 
-
-
-/// @brief 文件类型
-typedef enum __file_type_t {
-    FT_UNKNOW,
-    FT_REGULAR,
-    FT_DIRECTORY
-} file_type_t;
-
-
-/// @brief 文件的读写类型
-typedef enum __oflags_t {
-    O_RDONLY    =   0b000,              ///< 文件只读
-    O_WRONLY    =   0b001,              ///< 文件只写
-    O_RDWD      =   0b010,              ///< 文件读写
-    O_CREAT     =   0b100               ///< 文件若不存在, 则创建文件
-} oflags_t;
-
-
-/// @brief 文件读写位置偏移量
-typedef enum __whence_t {
-    /// @brief SEEK_SET 会将文件新的读写位置设置为相对文件开头的offset字节处, 此时要求offset为正值
-    SEEK_SET  =  1,
-    /// @brief SEEK_CUR 会将文件新的读写位置设置为相对当前位置的offset字节处, 此时要求offset正负均可
-    SEEK_CUR,
-    /// @brief SEEK_END 会将文件新的读写位置设置为相对文件结尾的offset字节处, 此时要求offset为负值
-    SEEK_END
-} whence_t;
 
 
 /// @brief search_file函数专用的结构体, 用于递归用
@@ -53,21 +26,21 @@ typedef struct __path_search_record {
 } path_search_record;
 
 
-/// @brief 文件属性结构体
-typedef struct __stat_t {
-    /// @brief 文件的inode编号
-    uint32_t st_ino;
-    /// @brief 文件的大小
-    uint32_t st_size;
-    /// @brief 文件类型
-    file_type_t st_filetype;
-} stat_t;
 
 
 /**
  * @brief filesys_init用于在磁盘上逐分区搜索文件系统, 如果磁盘上没有文件系统, 则创建一个文件系统
  */
 void filesys_init(void);
+
+
+/**
+ * @brief fd_local2global用于将进程的局部文件描述符
+ * 
+ * @param local_fd 需要转换的局部文件描述符
+ * @return uint32_t 转换后的全局文件描述符
+ */
+uint32_t fd_local2global(uint32_t local_fd);
 
 
 /**

@@ -1,27 +1,15 @@
 #ifndef __FS_DIR_H
 #define __FS_DIR_H
 
-#define MAX_FILE_NAME_LEN               16              ///< 文件或者目录名最大16个字符
 
 #include "stdint.h"
 #include "inode.h"
 #include "fs.h"
-
-/// @brief 目录的数据结构, 此项不会存在于磁盘中, 只会存在于内存中
-typedef struct __dir_t {
-    inode_t *inode;             ///< 存储目录文件的inode号
-    uint32_t dir_pos;           ///< 记录在目录内的偏移, 遍历目录的时候会用到
-    uint8_t dir_buf[512];       ///< 目录的数据缓存
-} dir_t;
+#include "types.h"
 
 
-typedef struct __dir_entry_t {
-    char filename[MAX_FILE_NAME_LEN];       // 文件或者目录的名称
-    uint32_t i_no;                          // 文件或者目录对应的inode编号
-    file_type_t f_type;                 // 文件类型
-}dir_entry_t;
 
-
+extern dir_t root_dir;
 
 
 /**
