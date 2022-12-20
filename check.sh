@@ -26,15 +26,18 @@ if [[ "$1" = "-h" ]] || [[ "$1" = "--help" ]]; then
     echo "     " "$(purple "START_LBA2:")" "start lba in JackOS-fs.img"
     echo "Example: "
     echo "    ./check.sh 30000 2674 build/_prog_no_arg"
+    echo "    ./check.sh 35000 2725 build/_prog_no_arg"
     echo "Options:"
     echo "    -h, --help      show this help message"
-    echo "    -f, --delete    delete check files"
+    echo "    -d, --delete    delete check files"
     exit 0
 fi
 
 
 if [[ $1 = "-d" ]] || [[ $1 = "--delete" ]]; then
-    echo "Re"
+    echo "Remove check files:" green check.{os,fs,uprog}
+    rm -f check.{os,fs,uprog}
+    exit 0
 fi
 
 
