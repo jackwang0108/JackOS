@@ -1,10 +1,13 @@
 BUILD_DIR = ./build
 ENTRY_POINT = 0xC0001500
-PREFIX = /home/jack/projects/ElephantBook/tools/bin
+PREFIX = /home/jack/projects/JackOS/tools/bin
+
 AS = nasm
 CC = $(PREFIX)/i686-elf-gcc
 LD = $(PREFIX)/i686-elf-ld
-LIB = -I lib/ -I lib/kernel -I lib/user -I kernel -I device -I thread -I userprog -I fs
+OBJDUMP = $(PREFIX)/i686-elf-objdump
+
+LIB = -I lib/ -I lib/kernel -I lib/user -I kernel -I device -I thread -I userprog -I fs -I shell
 # -W 表示Warning相关的Flag, -f 表示选择option, gcc为了加速会对一些诸如abs，strncpy等进行重定义，禁止gcc的这一行为
 CFLAGS = -O0 -W -Wall $(LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -g -Werror=incompatible-pointer-types
 LDFLAGS = -Ttext $(ENTRY_POINT) -e main -Map $(BUILD_DIR)/kernel.map
@@ -17,15 +20,18 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/process.o $(BUILD_DIR)/syscall.o $(BUILD_DIR)/syscall-init.o\
 		$(BUILD_DIR)/stdio.o $(BUILD_DIR)/kstdio.o $(BUILD_DIR)/ide.o\
 		$(BUILD_DIR)/dir.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o\
-		$(BUILD_DIR)/super_block.o $(BUILD_DIR)/file.o $(BUILD_DIR)/test.o
+		$(BUILD_DIR)/super_block.o $(BUILD_DIR)/file.o $(BUILD_DIR)/test.o\
+		$(BUILD_DIR)/fork.o $(BUILD_DIR)/shell.o $(BUILD_DIR)/builtin_cmd.o\
+		$(BUILD_DIR)/exec.o $(BUILD_DIR)/assert.o $(BUILD_DIR)/wait_exit.o
 
 
 ############################################################
-##################### 编译C语言代码 ##########################
+###################### 编译内核C语言代码 ######################
 ############################################################
 
 $(BUILD_DIR)/main.o: kernel/main.c \
-		lib/kernel/print.h lib/stdint.h kernel/init.h thread/thread.h
+		lib/kernel/print.h lib/stdint.h kernel/init.h thread/thread.h\
+		shell/shell.h
 	$(CC) $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/init.o: kernel/init.c kernel/init.h\
@@ -143,11 +149,30 @@ $(BUILD_DIR)/test.o: kernel/test.c kernel/test.h\
 		fs/fs.h device/ide.h
 	$(CC) $(CFLAGS) $< -o $@
 
+$(BUILD_DIR)/assert.o: lib/user/assert.c lib/user/assert.h\
+		lib/stdio.h
+	$(CC) $(CFLAGS) $< -o $@
 
+$(BUILD_DIR)/fork.o: userprog/fork.c userprog/fork.h\
+		lib/stdint.h kernel/global.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/shell.o: shell/shell.c shell/shell.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/builtin_cmd.o: shell/builtin_cmd.c shell/builtin_cmd.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/exec.o: userprog/exec.c userprog/exec.h
+	$(CC) $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/wait_exit.o: userprog/wait_exit.c userprog/wait_exit.o\
+		lib/stdint.h thread/thread.h
+	$(CC) $(CFLAGS) $< -o $@
 
 
 ############################################################
-###################### 编译汇编文件 ##########################
+##################### 编译内核汇编代码 ########################
 ############################################################
 
 ASFLAGS = -f elf
@@ -160,9 +185,19 @@ $(BUILD_DIR)/print.o: lib/kernel/print.S
 $(BUILD_DIR)/switch.o: thread/switch.S
 	$(AS) $(ASFLAGS) $< -o $@
 
+
+############################################################
+######################## 链接内核 ###########################
+############################################################
+
 $(BUILD_DIR)/kernel.bin: $(OBJS)
 	$(LD) $(LDFLAGS) $^ -o $@
 
+
+
+############################################################
+################# 编译MBR和LOADER汇编代码 ####################
+############################################################
 
 ASLIB = -I boot/include
 $(BUILD_DIR)/loader.bin: boot/loader.S
@@ -172,18 +207,73 @@ $(BUILD_DIR)/mbr.bin: boot/mbr.S
 	$(AS) -f bin $(ASLIB) $< -o $@
 
 
+############################################################
+######################## 编译CRT ###########################
+############################################################
+
+CRT = $(BUILD_DIR)/crt.a
+CRT_LIB = \
+		$(BUILD_DIR)/string.o			\
+		$(BUILD_DIR)/syscall.o			\
+		$(BUILD_DIR)/stdio.o			\
+		$(BUILD_DIR)/assert.o
+
+AR = $(PREFIX)/i686-elf-ar
+
+$(BUILD_DIR)/start.o: command/start.S
+	$(AS) -f elf $< -o $@
+
+$(CRT): $(CRT_LIB) $(BUILD_DIR)/start.o
+	$(AR) rcs $@ $(CRT_LIB) $(BUILD_DIR)/start.o
+
+############################################################
+###################### 编译用户程序 ##########################
+############################################################
+
+U_LIB = -I lib/ -I lib/user -I fs/
+# -W 表示Warning相关的Flag, -f 表示选择option, gcc为了加速会对一些诸如abs，strncpy等进行重定义，禁止gcc的这一行为
+U_CFLAGS = -W -Wall $(LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -Werror=incompatible-pointer-types -Wsystem-headers
+
+
+$(BUILD_DIR)/_prog_no_arg.o: command/prog_no_arg.c\
+		lib/stdio.h lib/user/syscall.h
+	$(CC) $(U_CFLAGS) $< -o $@
+
+$(BUILD_DIR)/_prog_with_arg.o: command/prog_with_arg.c\
+		lib/stdio.h lib/user/syscall.h
+	$(CC) $(U_CFLAGS) $< -o $@
+
+$(BUILD_DIR)/_cat.o: command/cat.c\
+		lib/stdio.h lib/user/syscall.h lib/string.c
+	$(CC) $(U_CFLAGS) $< -o $@
+
+############################################################
+###################### 链接用户程序 ##########################
+############################################################
+
+$(BUILD_DIR)/_prog_no_arg: $(BUILD_DIR)/_prog_no_arg.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
+$(BUILD_DIR)/_prog_with_arg: $(BUILD_DIR)/_prog_with_arg.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
+$(BUILD_DIR)/_cat: $(BUILD_DIR)/_cat.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
+############################################################
+###################### 命令行伪目标 ##########################
+############################################################
+
 .PHONY: mk_dir hd clean-os clean-fs clean-build all rc
 
 mk_dir:
-	if [ ! -d $(BUILD_DIR) ];then mkdir -p $(BUILD_DIR); fi
+	if [ ! -d $(BUILD_DIR)/dumps ];then mkdir -p $(BUILD_DIR)/dumps; fi
 
 bin_folder=$(BUILD_DIR)/..
 hd:
-#	dd if=/dev/zero of=$(bin_folder)/JackOS.img \
-#		bs=60M seek=0 conv=notrunc count=1
-#	dd if=/dev/zero of=$(bin_folder)/JackOS-fs.img \
-#		bs=80M seek=0 conv=notrunc count=1
-#	sfdisk $(bin_folder)/JackOS-fs.img < $(bin_folder)/JackOS-fs.sfdisk
 	bash $(BUILD_DIR)/../genrc.sh
 	dd if=$(BUILD_DIR)/mbr.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=0 conv=notrunc
@@ -192,6 +282,18 @@ hd:
 	dd if=$(BUILD_DIR)/kernel.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=9 conv=notrunc
 
+write_u_prog: $(BUILD_DIR)/_prog_no_arg $(BUILD_DIR)/_prog_with_arg
+	@echo "Size of $(BUILD_DIR)/_prog_no_arg: " $(shell ls -l $(BUILD_DIR)/_prog_no_arg | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_prog_no_arg of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_prog_no_arg | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=30000 conv=notrunc
+
+	@echo "Size of $(BUILD_DIR)/_prog_with_arg: " $(shell ls -l $(BUILD_DIR)/_prog_with_arg | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_prog_with_arg of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_prog_with_arg | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=35000 conv=notrunc
+
+	@echo "Size of $(BUILD_DIR)/_cat: " $(shell ls -l $(BUILD_DIR)/_cat | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_cat of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_cat | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=40000 conv=notrunc
 
 clean-os:
 	cd $(bin_folder) && (rm -f JackOS.img || true) && (rm -f JackOS.img.lock || true)
@@ -200,23 +302,27 @@ clean-fs:
 	cd $(bin_folder) && (rm -f JackOS-fs.img || true) && (rm -f JackOS-fs.img.lock || true)
 
 clean-build:
-	cd $(BUILD_DIR) && rm -f ./*
+	cd $(BUILD_DIR) && rm -rf ./*
 
 clean: clean-build clean-os clean-fs
 
+kernel: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
+
+user: $(BUILD_DIR)/_prog_no_arg
+
+disasm: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/_prog_no_arg $(BUILD_DIR)/_prog_with_arg $(BUILD_DIR)/_cat
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/kernel.bin > $(BUILD_DIR)/dumps/kernel.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_no_arg > $(BUILD_DIR)/dumps/_prog_no_arg.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_with_arg > $(BUILD_DIR)/dumps/_prog_with_arg.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_cat > $(BUILD_DIR)/dumps/_cat.dump
 
 
-build: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
+ll: mk_dir kernel hd disasm
 
-disasm: $(BUILD_DIR)/kernel.bin
-	objdump -D -m i386:intel $< > $(BUILD_DIR)/kernel.dump
-
-ll: mk_dir build hd disasm
-
-no-gdb: mk_dir build hd disasm
+no-gdb: mk_dir kernel hd disasm user write_u_prog
 	bash $(BUILD_DIR)/../genrc.sh
 
-with-gdb: mk_dir build hd disasm
+with-gdb: mk_dir kernel hd disasm user write_u_prog
 	bash $(BUILD_DIR)/../genrc.sh -g
 
 run-no-gdb: no-gdb

@@ -7,6 +7,7 @@
 #include "sync.h"
 #include "super_block.h"
 
+
 /// @brief Sturcture of Disk Partition, only in memory. Initialized in init_all() and
 ///        filled in mount_partition()
 typedef struct __partition_t{
@@ -57,6 +58,7 @@ typedef struct __ide_channel_t {
 } ide_channel_t;
 
 
+extern ide_channel_t channels[8];          ///< 系统当前最大支持两个ide通道
 
 /**
  * @brief ide_init用于初始化硬盘

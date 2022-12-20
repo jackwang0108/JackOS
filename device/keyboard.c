@@ -183,10 +183,14 @@ static void intr_keyboard_handler(void){
     uint8_t index = (scancode &= 0x00FF);
     char cur_char = keymap[index][last];
 
+    // 处理快捷键
+    if ((ctrl_down_last && cur_char == 'l') || (ctrl_down_last && cur_char == 'u'))
+        cur_char -= 'a';
+
     // 目前只处理非控制字符
     if (cur_char){
         if (!ioq_full(&kbd_buf)){
-            put_char(cur_char);
+            // put_char(cur_char);
             ioq_putchar(&kbd_buf, cur_char);
         }
         return;
