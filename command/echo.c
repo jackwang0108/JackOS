@@ -36,7 +36,9 @@ int main(int argc, char* argv[]){
 
         if (argv[file_idx][0] != '/'){
             getcwd(abs_path, 512);
-            // strcat(abs_path, "/");
+            uint32_t len = strlen(abs_path);
+            if (abs_path[len - 1] != '/')
+                abs_path[len] = '/';
             strcat(abs_path, argv[file_idx]);
         } else {
             strcpy(abs_path, argv[file_idx]);

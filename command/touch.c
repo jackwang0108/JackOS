@@ -11,6 +11,9 @@ int main(int argc, char* argv[]){
         printf("touch: touch needs 2 argument but only receives 1 argument!\n");
     } else {
         getcwd(touch_path, max_path_len);
+        uint32_t len = strlen(touch_path);
+        if (touch_path[len - 1] != '/')
+            touch_path[len] = '/';
         strcat(touch_path, argv[1]);
         
         // 创建的不是根目录
