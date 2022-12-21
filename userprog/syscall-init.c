@@ -68,7 +68,7 @@ void sys_help(void){
         "    Ctrl+l: clear screen\n"
         "    Ctrl+u: clear input\n"
         "Shell Features:\n"
-        "    No Ctrl+c/Ctrl+z support, NO <Up>/<Down>/<Left>/<Right> support, NO pipe '|' support\n"
+        "    No Ctrl+c/Ctrl+z support, NO <Up>/<Down>/<Left>/<Right> support, NO shell builtin pipe '|' support\n"
         "    There is only user program stdin/stdout redirection\n"
         "System Calls:\n"
         "    Refer lib/user/syscall.h for all available system calls\n"
