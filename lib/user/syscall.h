@@ -29,7 +29,10 @@ typedef enum __SYSCALL_NR_t {
     SYS_PS,
     SYS_EXECV,
     SYS_WAIT,
-    SYS_EXIT
+    SYS_EXIT,
+    SYS_PIPE,
+    SYS_FD_REDIRECT,
+    SYS_HELP
 } SYSCALL_NR_t;
 
 
@@ -251,5 +254,32 @@ pid_t wait(int32_t *status);
  * @brief exit系统调用用于主动结束调用的进程
  */
 void exit(int32_t status);
+
+
+/**
+ * @brief sys_pipe式pipe系统调用的实现函数. 用于创建管道, 创建成功后管道将放在pipefd中
+ * 
+ * @param pipefd 管道两端的两个文件描述符将被安装到pipefd中
+ * @return int32_t  若创建成功则返回0; 若创建失败则返回-1
+ */
+int32_t pipe(int32_t pipefd[2]);
+
+
+
+/**
+ * @brief fd_redirect系统调用用于将进程的文件描述符表中的old_local_fd替换为new_local_fd
+ * 
+ * @param old_local_fd 旧文件描述符
+ * @param new_local_fd 新文件描述符
+ */
+void fd_redirect(uint32_t old_local_fd, uint32_t new_local_fd);
+
+
+
+/**
+ * @brief help系统调用用于输出系统的帮助信息
+ */
+void help(void);
+
 
 #endif

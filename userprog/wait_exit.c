@@ -1,4 +1,6 @@
 #include "fs.h"
+#include "file.h"
+#include "pipe.h"
 #include "debug.h"
 #include "thread.h"
 #include "wait_exit.h"
@@ -61,11 +63,20 @@ static void release_prog_resource(task_struct_t *tcb){
     mfree_page(PF_KERNEL, user_vaddr_pool_bitmap, bitmap_pg_cnt);
 
     // 关闭打开的文件
-    uint8_t fd_idx = 3;
-    while (fd_idx < MAX_FILE_OPEN_PER_PROC){
-        if (tcb->fd_table[fd_idx] != -1)
-            sys_close(fd_idx);
-        fd_idx++;
+    uint8_t local_fd = 3;
+    while (local_fd < MAX_FILE_OPEN_PER_PROC){
+        if (tcb->fd_table[local_fd] != -1){
+            if (is_pipe(local_fd)){
+                uint32_t global_fd = fd_local2global(local_fd);
+                if (--file_table[global_fd].fd_pos == 0){
+                    mfree_page(PF_KERNEL, file_table[global_fd].fd_inode, 1);
+                    file_table[global_fd].fd_inode = NULL;
+                }
+            } else{
+                sys_close(local_fd);
+            }
+        }
+        local_fd++;
     }
 }
 

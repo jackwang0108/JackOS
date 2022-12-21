@@ -23,24 +23,10 @@ int main(void){
 
     // test_all();
 
-    // write a txt file
-    char *str = "Hello World!\n";
-    int32_t fd = open("/test.txt", O_CREAT | O_RDWD);
-    if (fd == -1){
-        kprintf("Open /test.txt failed!\n");
-    } else {
-        if (sys_write(fd, str, strlen(str)) == -1)
-            kprintf("Write /test.txt failed!\n");
-        else 
-            kprintf("Write /test.txt success!\n");
-    }
-    
     // write all user program
     write_all_user_prog();
 
     sys_clear();
-    kprintf("JackOS: A 32-bit OS for educational use, created by Jack Wang, in Wisconsin-Madison\n");
-    kprintf("Entering Wish: Wisconsin-Madison Shell. Enjoy!\n");
     kprintf("[Jack@JackOS /]$ ");
 
     thread_exit(running_thread(), true);
@@ -111,6 +97,8 @@ bool write_user_prog(uint32_t file_size, uint32_t start_lba, char *pathname){
             return false;
         }
     }
+
+    sys_close(fd);
     sys_free((void*)io_buf);
 
     return true;
@@ -125,21 +113,59 @@ bool write_user_prog(uint32_t file_size, uint32_t start_lba, char *pathname){
  *          you can decide pathname whatever you like, just make sure parent dir exists on sdb (JackOS-fs.img)
  */
 static void write_all_user_prog(void){
-    // command/prog_no_arg.c
-    if (write_user_prog(14956, 30000, "/prog_no_arg") == -1)
-        kprintf("Write user program 1 failed!\n");
-    else
-        kprintf("Write user program 1 success!\n");
+    // write a txt file
+    char *str = "Hello World!\n";
+    int32_t fd = open("/test.txt", O_CREAT | O_RDWD);
+    if (fd == -1){
+        kprintf("Open /test.txt failed!\n");
+    } else {
+        if (sys_write(fd, str, strlen(str)) == -1)
+            kprintf("Write /test.txt failed!\n");
+        else 
+            kprintf("Write /test.txt success!\n");
+    }
 
-    // command/prog_with_arg.c
-    if (write_user_prog(15292, 35000, "/prog_with_arg") == -1)
-        kprintf("Write user program 2 failed!\n");
-    else
-        kprintf("Write user program 2 success!\n");
 
-    // command/cat.c
-    if (write_user_prog(15724, 40000, "/cat") == -1)
-        kprintf("Write user program 3 failed!\n");
-    else
-        kprintf("Write user program 3 success!\n");
+    uint32_t file_sizes[] = {
+        14956,          // command/prog_no_arg.c
+        15292,          // command/prog_with_arg.c
+        15724,          // command/cat.c
+        15940,          // command/prog_pipe.c
+        16148,          // command/touch.c
+        16516           // command/echo.c
+    };
+
+    uint32_t start_lbas[] = {
+        30000,          // command/prog_no_arg.c
+        35000,          // command/prog_with_arg.c
+        40000,          // command/cat.c
+        45000,          // command/prog_pipe.c
+        50000,          // command/touch.c
+        55000           // command/echo.c
+    };
+
+    char *pathnames[] = {
+        "/prog_no_arg",
+        "/prog_with_arg",
+        "/cat",
+        "/prog_pipe",
+        "/touch",
+        "/echo"
+    };
+
+    uint32_t fs = sizeof(file_sizes) / sizeof(uint32_t),
+             ss = sizeof(start_lbas) / sizeof(uint32_t),
+             ps = sizeof(pathnames) / sizeof(char*);
+    
+    if (fs != ss && ss != ps)
+        PANIC("file_sizes, start_lbas and pathnames mismatch!\n");
+
+    for (uint32_t i = 0; i < fs; i++){
+        if (write_user_prog(file_sizes[i], start_lbas[i], pathnames[i]) == -1){
+            kprintf("Write user program: %s failed! Given file size: %d, start_lba: %d\n", pathnames[i], file_sizes[i], start_lbas[i]);
+            kprintf("User program %s may already exists!\n");
+        }
+        else
+            kprintf("Write user program: %s Success! Given file size: %d, start_lba: %d\n", pathnames[i], file_sizes[i], start_lbas[i]);
+    }
 }

@@ -22,7 +22,8 @@ OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/init.o $(BUILD_DIR)/interrupt.o\
 		$(BUILD_DIR)/dir.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/inode.o\
 		$(BUILD_DIR)/super_block.o $(BUILD_DIR)/file.o $(BUILD_DIR)/test.o\
 		$(BUILD_DIR)/fork.o $(BUILD_DIR)/shell.o $(BUILD_DIR)/builtin_cmd.o\
-		$(BUILD_DIR)/exec.o $(BUILD_DIR)/assert.o $(BUILD_DIR)/wait_exit.o
+		$(BUILD_DIR)/exec.o $(BUILD_DIR)/assert.o $(BUILD_DIR)/wait_exit.o\
+		$(BUILD_DIR)/pipe.o
 
 
 ############################################################
@@ -170,6 +171,10 @@ $(BUILD_DIR)/wait_exit.o: userprog/wait_exit.c userprog/wait_exit.o\
 		lib/stdint.h thread/thread.h
 	$(CC) $(CFLAGS) $< -o $@
 
+$(BUILD_DIR)/pipe.o: shell/pipe.c shell/pipe.h\
+		lib/stdint.h
+	$(CC) $(CFLAGS) $< -o $@
+
 
 ############################################################
 ##################### 编译内核汇编代码 ########################
@@ -230,9 +235,9 @@ $(CRT): $(CRT_LIB) $(BUILD_DIR)/start.o
 ###################### 编译用户程序 ##########################
 ############################################################
 
-U_LIB = -I lib/ -I lib/user -I fs/
+U_LIB = -I lib/ -I lib/user -I fs/ -I lib/kernel -I kernel
 # -W 表示Warning相关的Flag, -f 表示选择option, gcc为了加速会对一些诸如abs，strncpy等进行重定义，禁止gcc的这一行为
-U_CFLAGS = -W -Wall $(LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -Werror=incompatible-pointer-types -Wsystem-headers
+U_CFLAGS = -W -Wall $(U_LIB) -c -fno-builtin -Werror=strict-prototypes -Wmissing-prototypes -Werror=incompatible-pointer-types -Wsystem-headers
 
 
 $(BUILD_DIR)/_prog_no_arg.o: command/prog_no_arg.c\
@@ -243,8 +248,20 @@ $(BUILD_DIR)/_prog_with_arg.o: command/prog_with_arg.c\
 		lib/stdio.h lib/user/syscall.h
 	$(CC) $(U_CFLAGS) $< -o $@
 
+$(BUILD_DIR)/_prog_pipe.o: command/prog_pipe.c\
+		lib/stdio.h lib/user/syscall.h lib/string.h lib/stdint.h
+	$(CC) $(U_CFLAGS) $< -o $@
+
 $(BUILD_DIR)/_cat.o: command/cat.c\
-		lib/stdio.h lib/user/syscall.h lib/string.c
+		lib/stdio.h lib/user/syscall.h lib/string.h
+	$(CC) $(U_CFLAGS) $< -o $@
+
+$(BUILD_DIR)/_touch.o: command/touch.c\
+		lib/stdio.h lib/user/syscall.h lib/string.h lib/stdint.h
+	$(CC) $(U_CFLAGS) $< -o $@
+
+$(BUILD_DIR)/_echo.o: command/echo.c\
+		lib/stdio.h lib/user/syscall.h lib/string.h lib/stdint.h
 	$(CC) $(U_CFLAGS) $< -o $@
 
 ############################################################
@@ -259,7 +276,19 @@ $(BUILD_DIR)/_prog_with_arg: $(BUILD_DIR)/_prog_with_arg.o\
 		$(CRT)
 	$(LD) $< $(CRT) -o $@
 
+$(BUILD_DIR)/_prog_pipe: $(BUILD_DIR)/_prog_pipe.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
 $(BUILD_DIR)/_cat: $(BUILD_DIR)/_cat.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
+$(BUILD_DIR)/_touch: $(BUILD_DIR)/_touch.o\
+		$(CRT)
+	$(LD) $< $(CRT) -o $@
+
+$(BUILD_DIR)/_echo: $(BUILD_DIR)/_echo.o\
 		$(CRT)
 	$(LD) $< $(CRT) -o $@
 
@@ -282,7 +311,14 @@ hd:
 	dd if=$(BUILD_DIR)/kernel.bin of=$(bin_folder)/JackOS.img \
 		bs=512 seek=9 conv=notrunc
 
-write_u_prog: $(BUILD_DIR)/_prog_no_arg $(BUILD_DIR)/_prog_with_arg
+write_u_prog: \
+			$(BUILD_DIR)/_prog_no_arg \
+			$(BUILD_DIR)/_prog_with_arg \
+			$(BUILD_DIR)/_prog_pipe\
+			$(BUILD_DIR)/_cat\
+			$(BUILD_DIR)/_touch\
+			$(BUILD_DIR)/_echo
+
 	@echo "Size of $(BUILD_DIR)/_prog_no_arg: " $(shell ls -l $(BUILD_DIR)/_prog_no_arg | awk '{print $$5}') " bytes"
 	dd  if=$(BUILD_DIR)/_prog_no_arg of=$(bin_folder)/JackOS.img \
 		count=$(shell ls -l $(BUILD_DIR)/_prog_no_arg | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=30000 conv=notrunc
@@ -291,9 +327,21 @@ write_u_prog: $(BUILD_DIR)/_prog_no_arg $(BUILD_DIR)/_prog_with_arg
 	dd  if=$(BUILD_DIR)/_prog_with_arg of=$(bin_folder)/JackOS.img \
 		count=$(shell ls -l $(BUILD_DIR)/_prog_with_arg | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=35000 conv=notrunc
 
+	@echo "Size of $(BUILD_DIR)/_prog_pipe: " $(shell ls -l $(BUILD_DIR)/_prog_pipe | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_prog_pipe of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_prog_pipe | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=45000 conv=notrunc
+
 	@echo "Size of $(BUILD_DIR)/_cat: " $(shell ls -l $(BUILD_DIR)/_cat | awk '{print $$5}') " bytes"
 	dd  if=$(BUILD_DIR)/_cat of=$(bin_folder)/JackOS.img \
 		count=$(shell ls -l $(BUILD_DIR)/_cat | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=40000 conv=notrunc
+
+	@echo "Size of $(BUILD_DIR)/_touch: " $(shell ls -l $(BUILD_DIR)/_touch | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_touch of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_touch | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=50000 conv=notrunc
+
+	@echo "Size of $(BUILD_DIR)/_echo: " $(shell ls -l $(BUILD_DIR)/_echo | awk '{print $$5}') " bytes"
+	dd  if=$(BUILD_DIR)/_echo of=$(bin_folder)/JackOS.img \
+		count=$(shell ls -l $(BUILD_DIR)/_echo | awk '{printf("%d", ($$5+511)/512)}') bs=512 seek=55000 conv=notrunc
 
 clean-os:
 	cd $(bin_folder) && (rm -f JackOS.img || true) && (rm -f JackOS.img.lock || true)
@@ -310,11 +358,20 @@ kernel: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/mbr.bin $(BUILD_DIR)/loader.bin
 
 user: $(BUILD_DIR)/_prog_no_arg
 
-disasm: $(BUILD_DIR)/kernel.bin $(BUILD_DIR)/_prog_no_arg $(BUILD_DIR)/_prog_with_arg $(BUILD_DIR)/_cat
+disasm: $(BUILD_DIR)/kernel.bin\
+		$(BUILD_DIR)/_prog_no_arg \
+		$(BUILD_DIR)/_prog_with_arg \
+		$(BUILD_DIR)/_prog_pipe\
+		$(BUILD_DIR)/_cat\
+		$(BUILD_DIR)/_touch\
+		$(BUILD_DIR)/_echo
 	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/kernel.bin > $(BUILD_DIR)/dumps/kernel.dump
 	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_no_arg > $(BUILD_DIR)/dumps/_prog_no_arg.dump
-	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_with_arg > $(BUILD_DIR)/dumps/_prog_with_arg.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_with_arg > $(BUILD_DIR)/dumps/_progwith_arg.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_prog_pipe > $(BUILD_DIR)/dumps/_prog_pipe.dump
 	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_cat > $(BUILD_DIR)/dumps/_cat.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_touch > $(BUILD_DIR)/dumps/_touch.dump
+	$(OBJDUMP) -D -M intel:i386 $(BUILD_DIR)/_echo > $(BUILD_DIR)/dumps/_echo.dump
 
 
 ll: mk_dir kernel hd disasm

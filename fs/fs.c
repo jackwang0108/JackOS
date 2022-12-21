@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "ide.h"
 #include "dir.h"
+#include "pipe.h"
 #include "file.h"
 #include "inode.h"
 #include "debug.h"
@@ -577,7 +578,7 @@ int32_t sys_open(const char *pathname, uint8_t flags){
 uint32_t fd_local2global(uint32_t local_fd){
     task_struct_t *cur = running_thread();
     int32_t global_fd = cur->fd_table[local_fd];
-    ASSERT(0 <= global_fd && global_fd < MAX_FILE_OPEN_PER_PROC);
+    ASSERT(0 <= global_fd && global_fd < MAX_FILE_OPEN);
     return (uint32_t)global_fd;
 }
 
@@ -592,7 +593,15 @@ int32_t sys_close(int32_t fd){
     int32_t ret = -1;
     if (fd > 2){
         uint32_t fd_global = fd_local2global(fd);
-        ret = file_close(&file_table[fd_global]);
+        if (is_pipe(fd)){
+            if (--file_table[fd_global].fd_pos == 0){
+                mfree_page(PF_KERNEL, file_table[fd_global].fd_inode, 1);
+                file_table[fd_global].fd_inode = NULL;
+            }
+            ret = 0;
+        } else {
+            ret = file_close(&file_table[fd_global]);
+        }
         running_thread()->fd_table[fd] = -1;
     }
     return ret;
@@ -615,20 +624,27 @@ int32_t sys_write(int32_t fd, const void *buf, uint32_t count){
 
     // stdout则输出到屏幕中
     if (fd == stdout_no){
-        char temp_buf[1024] = {0};
-        memcpy(temp_buf, buf, count);
-        console_put_str(temp_buf);
-        return count;
-    }
-
-    uint32_t _fd = fd_local2global(fd);
-    file_desc_t *wr_file = &file_table[_fd];
-    if (wr_file->fd_flag & O_WRONLY || wr_file->fd_flag & O_RDWD){
-        uint32_t bytes_written = file_write(wr_file, buf, count);
-        return bytes_written;
+        // 如果标准输出被重定向为pipe
+        if (is_pipe(fd)){
+            return pipe_write(fd, buf, count);
+        } else {
+            char temp_buf[1024] = {0};
+            memcpy(temp_buf, buf, count);
+            console_put_str(temp_buf);
+            return count;
+        }
+    } else if (is_pipe(fd)){
+        return pipe_write(fd, buf, count);
     } else {
-        console_put_str("sys_write: not allowed to write file without writing permission: O_RDWR or O_WRONLY not found\n");
-        return -1;
+        uint32_t _fd = fd_local2global(fd);
+        file_desc_t *wr_file = &file_table[_fd];
+        if (wr_file->fd_flag & O_WRONLY || wr_file->fd_flag & O_RDWD){
+            uint32_t bytes_written = file_write(wr_file, buf, count);
+            return bytes_written;
+        } else {
+            console_put_str("sys_write: not allowed to write file without writing permission: O_RDWR or O_WRONLY not found\n");
+            return -1;
+        }
     }
 }
 
@@ -645,21 +661,28 @@ extern ioqueue_t kbd_buf;
 int32_t sys_read(int32_t fd, void *buf, uint32_t count){
     ASSERT(buf != NULL);
     int ret = -1;
+    uint32_t global_fd = 0;
     if (fd < 0 || fd == stdout_no || fd == stderr_no){
         kprintf("%s: fd error\n", __func__);
         return -1;
     } else if (fd == stdin_no){
-        char *buffer = buf;
-        uint32_t byte_read = 0;
-        while (byte_read < count){
-            *buffer = ioq_getchar(&kbd_buf);
-            byte_read++;
-            buffer++;
+        if (is_pipe(fd)){
+            ret = pipe_read(fd, buf, count);
+        } else {
+            char *buffer = buf;
+            uint32_t byte_read = 0;
+            while (byte_read < count){
+                *buffer = ioq_getchar(&kbd_buf);
+                byte_read++;
+                buffer++;
+            }
+            ret = (byte_read == 0 ? -1 : (int32_t)byte_read);
         }
-        ret = (byte_read == 0 ? -1 : (int32_t)byte_read);
+    } else if (is_pipe(fd)){
+        ret = pipe_read(fd, buf, count);
     } else {
-        uint32_t _fd = fd_local2global(fd);
-        ret = file_read(&file_table[_fd], buf, count);
+        global_fd = fd_local2global(fd);
+        ret = file_read(&file_table[global_fd], buf, count);
     }
     return ret;
 }

@@ -29,7 +29,7 @@ void test_all(void){
 }
 
 void k_thread_a(void *arg){
-    char* para = (char *)arg;
+    char* para __attribute__((unused)) = (char *)arg;
 
     void *addrs[7];
     kprintf("thread a_start\n");
@@ -49,7 +49,7 @@ void k_thread_a(void *arg){
 }
 
 void k_thread_b(void *arg){
-    char* para = (char *)arg;
+    char* para __attribute__((unused)) = (char *)arg;
     void *addrs[9];
     int max = 1000;
     kprintf("thread b_start\n");
@@ -105,14 +105,14 @@ void u_prog_c(void){
 
 
 void test_kernel_thread(void){
-    intr_status_t old_status = intr_enable();
+    intr_status_t old_status __attribute__((unused)) = intr_enable();
     thread_start("k_thread_a", 31, k_thread_a, "argA ");
     thread_start("k_thread_b", 31, k_thread_b, "argB ");
 }
 
 
 void test_user_porg(void){
-    intr_status_t old_status = intr_enable();
+    intr_status_t old_status __attribute__((unused)) = intr_enable();
     // process_execute(u_prog_a, "user_prog_a");
     // process_execute(u_prog_b, "user_prog_b");
     process_execute(u_prog_c, "user_prog_c");

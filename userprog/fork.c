@@ -1,3 +1,4 @@
+#include "pipe.h"
 #include "file.h"
 #include "fork.h"
 #include "debug.h"
@@ -136,8 +137,12 @@ static void update_inode_open_cnts(task_struct_t *tcb){
     while (local_fd < MAX_FILE_OPEN_PER_PROC){
         global_fd = tcb->fd_table[local_fd];
         ASSERT(global_fd < MAX_FILE_OPEN);
-        if (global_fd != -1)
-            file_table[global_fd].fd_inode->i_open_cnt++;
+        if (global_fd != -1){
+            if (is_pipe(local_fd))
+                file_table[global_fd].fd_pos++;
+            else 
+                file_table[global_fd].fd_inode->i_open_cnt++;
+        }
         local_fd++;
     }
 }

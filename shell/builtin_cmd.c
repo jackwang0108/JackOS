@@ -347,19 +347,21 @@ int32_t builtin_rm(uint32_t argc, char **argv){
 }
 
 
+char touch_path[MAX_PATH_LEN] = {0};
 int32_t builtin_touch(uint32_t argc, char **argv){
     int32_t ret = -1;
     if (argc != 2) {
         printf("touch: touch receives only 1 argument!\n");
     } else {
         char temp[MAX_PATH_LEN] = {0};
-        char filepath[MAX_PATH_LEN] = {0};
         getcwd(temp, MAX_PATH_LEN);
         strcat(temp, argv[1]);
-        make_clear_abs_path(temp, filepath);
+        memset(touch_path, 0, MAX_PATH_LEN);
+        make_clear_abs_path(temp, touch_path);
         // 创建的不是根目录
-        if (strcmp("/", final_path)){
-            if (open(final_path, O_CREAT) != -1){
+        if (strcmp("/", touch_path)){
+            int32_t fd = open(touch_path, O_CREAT | O_RDWD);
+            if (fd != -1){
                 ret = 0;
             } else {
                 printf("touch: create file %s failed!\n", argv[1]);

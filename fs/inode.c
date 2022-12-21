@@ -157,7 +157,7 @@ inode_t *inode_open(partition_t *partition, uint32_t inode_no){
 void inode_close(inode_t *inode){
     // 操作共享数据前, 先关中断
     intr_status_t old_status = intr_disable();
-    if (--inode->i_open_cnt == 0){
+    if (--(inode->i_open_cnt) == 0){
         list_remove(&inode->inode_tag);
         task_struct_t *cur = running_thread();
         uint32_t *cur_pagedir_backup = cur->pgdir;

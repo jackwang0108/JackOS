@@ -39,4 +39,9 @@ void sys_putchar(char char_ascii);
 void sys_clear(void);
 
 
+/**
+ * @brief sys_help是help系统调用的执行函数, 用于输出系统的帮助信息
+ */
+void sys_help(void);
+
 #endif

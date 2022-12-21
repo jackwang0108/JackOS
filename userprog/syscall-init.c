@@ -9,6 +9,8 @@
 #include "memory.h"
 #include "exec.h"
 #include "wait_exit.h"
+#include "pipe.h"
+#include "kstdio.h"
 
 #define syscall_nr 32
 
@@ -44,6 +46,36 @@ void sys_clear(void){
     cls_screen();
 }
 
+
+/**
+ * @brief sys_help是help系统调用的执行函数, 用于输出系统的帮助信息
+ */
+void sys_help(void){
+    kprintf(
+        "JackOS: A 32-bit OS for Educational Use\n"
+        "    Author: Shihong(Jack) Wang, a junior in Wisconsin-Madison & XJTU\n"
+        "Builtin Command:\n"
+        "    ls: show directory or file information. -l option available\n"
+        "    cd: change current working directory\n"
+        "    mkdir: create a directory\n"
+        "    rmdir: remove a directory\n"
+        "    rm: remove a regular file\n"
+        "    pwd: print current working directory\n"
+        "    ps: show process information\n"
+        "    clear: clear current screen\n"
+        "    help: show this help message\n"
+        "Shotcut Key:\n"
+        "    Ctrl+l: clear screen\n"
+        "    Ctrl+u: clear input\n"
+        "Shell Features:\n"
+        "    No Ctrl+c/Ctrl+z support, NO <Up>/<Down>/<Left>/<Right> support, NO pipe '|' support\n"
+        "    There is only user program stdin/stdout redirection\n"
+        "System Calls:\n"
+        "    Refer lib/user/syscall.h for all available system calls\n"
+    );
+}
+
+
 /**
  * @brief syscall_init 用于初始化系统调用, 即在syscall_table中注册各个系统调用
  * 
@@ -78,5 +110,8 @@ void syscall_init(void){
     syscall_table[SYS_EXECV] = sys_execv;
     syscall_table[SYS_WAIT] = sys_wait;
     syscall_table[SYS_EXIT] = sys_exit;
+    syscall_table[SYS_PIPE] = sys_pipe;
+    syscall_table[SYS_FD_REDIRECT] = sys_fd_redirect;
+    syscall_table[SYS_HELP] = sys_help;
     put_str("syscall_init done\n");
 }

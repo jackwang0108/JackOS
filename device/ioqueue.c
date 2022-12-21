@@ -41,6 +41,22 @@ bool ioq_empty(ioqueue_t *ioq){
     return ioq->head == ioq->tail;
 }
 
+
+/**
+ * @brief ioq_length用于获取ioq中的数据总数
+ * 
+ * @param ioq 需要获取数据总数的ioqueue
+ * @return uint32_t ioq中的数据总数
+ */
+uint32_t ioq_length(ioqueue_t *ioq){
+    uint32_t len = 0;
+    if (ioq->head >= ioq->tail)
+        len = ioq->head - ioq->tail;
+    else
+        len = bufsize - (ioq->tail - ioq->head);
+    return len;
+}
+
 /**
  * @brief ioq_wait用于让当前正在访问的线程（生产者或消费者）等待，同时返回被等待的线程
  * 

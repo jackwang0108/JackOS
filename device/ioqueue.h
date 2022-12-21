@@ -40,4 +40,12 @@ void ioq_wakeup(task_struct_t **waiter);
 char ioq_getchar(ioqueue_t *ioq);
 void ioq_putchar(ioqueue_t *ioq, char byte);
 
+/**
+ * @brief ioq_length用于获取ioq中的数据总数
+ * 
+ * @param ioq 需要获取数据总数的ioqueue
+ * @return uint32_t ioq中的数据总数
+ */
+uint32_t ioq_length(ioqueue_t *ioq);
+
 #endif

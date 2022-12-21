@@ -161,6 +161,9 @@ int32_t file_create(dir_t *parent_dir, char *filename, uint8_t flag){
     // 所以声明一个rollback_step用来记录要释放那些资源
     // 此外, file_create函数未来是以系统调用的形式来让用户进程使用的, 因此这里直接sys_malloc即可, 得到的内存就是在内核线程的堆中的
     uint8_t rollback_step = 0;
+    task_struct_t *cur = running_thread();
+    uint32_t user_pgdir_bk = (uint32_t)cur->pgdir;
+    cur->pgdir = NULL;
     inode_t *new_file_node = (inode_t *) sys_malloc(sizeof(inode_t));
     if (new_file_node == NULL){
         kprintf("file_create: sys_malloc for inode failed!\n");
@@ -168,6 +171,7 @@ int32_t file_create(dir_t *parent_dir, char *filename, uint8_t flag){
         goto rollback;              // 因为已经申请了inode_bitmap, 所以跳到后面去释放资源
     }
     inode_init(inode_no, new_file_node);
+    cur->pgdir = (uint32_t*)user_pgdir_bk;
 
     int global_fd_idx = get_free_slot_in_global();
     if (global_fd_idx == -1){
@@ -234,7 +238,9 @@ rollback:
             __attribute__ ((fallthrough));
         case 2:
             // get_free_slot失败时, 需要释放内核线程堆中的inode
+            cur->pgdir = NULL;
             sys_free(new_file_node);
+            cur->pgdir = (uint32_t*) user_pgdir_bk;
             __attribute__ ((fallthrough));
         case 1:
             // sys_malloc(new_file_inode)失败时, 释放申请到的inode bitmap位

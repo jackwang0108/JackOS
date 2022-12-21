@@ -1,5 +1,6 @@
 #include "fs.h"
 #include "file.h"
+#include "pipe.h"
 #include "shell.h"
 #include "stdio.h"
 #include "assert.h"
@@ -135,70 +136,135 @@ int argc = -1;
 char *argv[MAX_ARG_NR];
 
 /**
+ * @brief cmd_execute用于执行命令
+ * 
+ * @param argc 命令行参数个数
+ * @param argv 命令行参数
+ */
+static void cmd_execute(uint32_t argc, char **argv){
+    // run builtin command and external command
+    if (!strcmp("ls", argv[0])){                        // ls
+        builtin_ls(argc, argv);
+    } else if (!strcmp("cd", argv[0])){                 // cd
+        if (buildin_cd(argc, argv) != NULL){
+            memset(cwd_cache, 0, MAX_PATH_LEN);
+            strcpy(cwd_cache, final_path);
+        }
+    } else if (!strcmp("pwd", argv[0])){                // pwd
+        builtin_pwd(argc, argv);
+    } else if (!strcmp("ps", argv[0])){                 // ps
+        builtin_ps(argc, argv);
+    } else if (!strcmp("clear", argv[0])){              // clear
+        builtin_clear(argc, argv);
+    } else if (!strcmp("mkdir", argv[0])){              // mkdir
+        builtin_mkdir(argc, argv);
+    } else if (!strcmp("rmdir", argv[0])){              // rmdir
+        builtin_rmdir(argc, argv);
+    } else if (!strcmp("rm", argv[0])){                 // rm
+        builtin_rm(argc, argv);
+    // } else if (!strcmp("touch", argv[0])){              // touch
+    //     builtin_touch(argc, argv);
+    } else if (!strcmp("help", argv[0])) {
+        help();
+    } else {
+        // fork to run user program
+        int32_t pid = fork();
+        // 父进程
+        if (pid){
+            int32_t status;
+            int32_t child_pid = wait(&status);
+            if (child_pid == -1)
+                panic("wish: unknow error happened! no child found!\n");
+            printf("child_pid: %d, return status: %d\n", child_pid, status);
+        // 子进程
+        } else {
+            make_clear_abs_path(argv[0], final_path);
+            argv[0] = final_path;
+            // 查找文件, 判断文件是否在存在
+            stat_t file_stat;
+            memset(&file_stat, 0, sizeof(stat_t));
+            if (stat(argv[0], &file_stat) == -1){
+                printf("wish: cannot access %s: No such file or directory\n", argv[0]);
+                exit(-1);
+            }
+            execv(argv[0], (char**) argv);
+        }
+    }
+}
+
+
+/**
  * @brief JackOS的Shell
  */
 void wish(void){
     cwd_cache[0] = '/';
     while (1){
+        // print command line prompt
         print_prompt();
+
+        // read user input
         memset(cmd_line, 0, MAX_PATH_LEN);
         memset(final_path, 0, MAX_PATH_LEN);
         readline(cmd_line, MAX_PATH_LEN);
-        if (cmd_line[0] == 0)           // 只输入了一个回车
-            continue;
-        
-        argc = -1;
-        argc = cmd_split(cmd_line, argv, ' ');
-        if (argc == -1){
-            printf("num of arguments exceed %d\n", MAX_ARG_NR);
-            continue;
-        }
 
-        // run builtin command and external command
-        if (!strcmp("ls", argv[0])){                        // ls
-            builtin_ls(argc, argv);
-        } else if (!strcmp("cd", argv[0])){                 // cd
-            if (buildin_cd(argc, argv) != NULL){
-                memset(cwd_cache, 0, MAX_PATH_LEN);
-                strcpy(cwd_cache, final_path);
+        // if only an <Enter>
+        if (cmd_line[0] == 0)
+            continue;
+
+        // process pipe '|'
+        char *pipe_symbol = strchr(cmd_line, '|');
+        if (pipe_symbol){
+            int32_t fd[2] = {-1};
+            pipe(fd);
+
+
+            // run first command
+            char *each_cmd = cmd_line;
+            pipe_symbol = strchr(each_cmd, '|');
+            *pipe_symbol = 0;
+            argc = -1;
+            argc = cmd_split(each_cmd, argv, ' ');
+
+            // redirect first command process stdout to pipe
+            fd_redirect(1, fd[1]);
+            cmd_execute(argc, argv);
+
+            // run rest command until last command
+            each_cmd = pipe_symbol + 1;
+            // redirect stdin of rest command process
+            fd_redirect(0, fd[0]);
+            while ((pipe_symbol = strchr(each_cmd, '|'))){
+                *pipe_symbol = 0;
+                argc = -1;
+                argc = cmd_split(each_cmd, argv, ' ');
+                cmd_execute(argc, argv);
+                each_cmd = pipe_symbol + 1;
             }
-        } else if (!strcmp("pwd", argv[0])){                // pwd
-            builtin_pwd(argc, argv);
-        } else if (!strcmp("ps", argv[0])){                 // ps
-            builtin_ps(argc, argv);
-        } else if (!strcmp("clear", argv[0])){              // clear
-            builtin_clear(argc, argv);
-        } else if (!strcmp("mkdir", argv[0])){              // mkdir
-            builtin_mkdir(argc, argv);
-        } else if (!strcmp("rmdir", argv[0])){              // rmdir
-            builtin_rmdir(argc, argv);
-        } else if (!strcmp("rm", argv[0])){                 // rm
-            builtin_rm(argc, argv);
-        } else if (!strcmp("touch", argv[0])){              // touch
-            builtin_touch(argc, argv);
+
+            // run last command
+            argc = -1;
+            argc = cmd_split(each_cmd, argv, ' ');
+            // redirect stdout to screen
+            fd_redirect(1, 1);
+            cmd_execute(argc, argv);
+
+            // redirect stdin to keyboard
+            fd_redirect(0, 0);
+            close(fd[0]);
+            close(fd[1]);
+
+        // process normal command
         } else {
-            // fork to run user program
-            int32_t pid = fork();
-            // 父进程
-            if (pid){
-                int32_t status;
-                int32_t child_pid = wait(&status);
-                if (child_pid == -1)
-                    panic("wish: unknow error happened! no child found!\n");
-                printf("child_pid: %d, return status: %d\n", child_pid, status);
-            // 子进程
-            } else {
-                make_clear_abs_path(argv[0], final_path);
-                argv[0] = final_path;
-                // 查找文件, 判断文件是否在存在
-                stat_t file_stat;
-                memset(&file_stat, 0, sizeof(stat_t));
-                if (stat(argv[0], &file_stat) == -1){
-                    printf("wish: cannot access %s: No such file or directory\n", argv[0]);
-                    exit(-1);
-                }
-                execv(argv[0], (char**) argv);
+            // split command line arguments
+            argc = -1;
+            argc = cmd_split(cmd_line, argv, ' ');
+            if (argc == -1){
+                printf("num of arguments exceed %d\n", MAX_ARG_NR);
+                continue;
             }
+
+            // execute command
+            cmd_execute(argc, argv);
         }
 
         // clear argument
