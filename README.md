@@ -2,116 +2,160 @@
 
 # JackOS
 
-A simple operating system kernel written by Shihong(Jack) Wang, for study and practice OS only.
-
-This repository aims to realize a simple OS kernel that provides basic functionalities like scheduling, virtual memory management (segmentation & paging), storage management (file system) and device management (keyboard & mouse).
-
-Since, I'm currently a short term exchange student majoring in Computer Science in UW-Madison, I hope I can finish major functionalities of the kernel while I'm studying in UW-Madison.
-
-Plus, the develop journal will be updated on my [website  episode](http://jackwang.cafe/categories/JackOS%E5%BC%80%E5%8F%91%E6%97%A5%E8%AE%B0/). Forgive me if the posts are in Chinese, I'll try my best to convey myself clearly in English, but not assured.
+> JackOS: A simple operating system written by Shihong(Jack) Wang, for study and practice OS only.
 
 
 
-Read the project README in other language: [简体中文](README-zh.md)
+**JackOS is a simple OS kernel that explains how a real Operating System runs.** It's so simple, that less that 7000 line of codes, but have all component that a real kernel has. By learning and hacking JackOS, you will get deeper understanding of JackOS.
 
 
 
-# Target
-
-I want `JackOS` be a 32-bit OS working under text mode (I don't want to **currently** burden myself with graphic/GPU things...) with following features:
-
-- Memory management:
-  - [x] Segmentation
-  - [x] Paging and virtual address
-  - [x] Kernel memory allocation
-  - [ ] User memory allocation
-  
-- Hardware support:
-  - [x] Keyboard
-  - [x] Screen/console
-  - [ ] Mouse
-  - [ ] Hard disk
-- File System:
-  - [ ] Basic `ext2/3` file system
-
-- Concurrency:
-  - [x] Kernel thread
-  - [ ] User thread
+I'm a junor student majoring in Computer Science, and JackOS is written when I take CS537 in UW-Madison for I think original projects are easy and want to challenge myself. And I succeed :).
 
 
 
+I hope this repository can also help **those who want to learn more**, **those who are NOT satisfied with just concept** of Operating System, **those who want to read, write real Operating System Code**.
 
-# Preparation
 
-`init.sh` is a simple command line tool for initializing and quickly running the JackOS.
 
-> Note: by default, cross-compile toolchain source code will be download at `<ProjectBaseDir>/tools/src`, and compiled cross-compile tools will be installed at `<ProjectBaseDir>/tools/bin`. You can change first few lines of `init.sh` to change installation path.
+Reading a real OS source code like Linux is tooooo hard, because `slab` and `vfs` and other powerful components greatly increase its complexity, making it toooooo hard to understand. **The design approach of `JackOS` is the simple, the best**, so it implement any component in the simplest way, in order to make reader understand.
 
-Run `bash init.sh -h`, and you will see:
+<img src="./.assets/README/image-20221221110318213.png" alt="image-20221221110318213" style="zoom: 50%;" />
 
-```sh
-❯ bash init.sh -h
-Init tools for downloading, compiling, installing debugger and corss-compile toolchain of JackOS, created by Jack Wang
-Options:
-    -h, --help                Show this help message
-    -d, --download            Download toolchain
-    -c, --compile             Compile toolchain
+
+
+# Features
+
+JackOS has following features:
+
+- run under 32-bit Protect Modes, with secondary page table
+- console works in text mode
+- round-robbin scheduler
+- has a ext2-like file system
+- 32-bit ELF executable user program support
+
+Demo Vides: 
+
+
+
+# Quick Run
+
+
+
+### 1. Prepare toolchain: Cross Compiler and Simulator
+
+I write a tool for initializing toolchains of JackOS by one-click: `init.sh`.
+
+#### A. `bash init.sh -h`: Print help message
+
+`init.sh` is a simple command line tool and easy to use.
+
+Run
+
+```bash
+bash init.sh -h
 ```
 
-To run the OS, first run:
+and you will see:
+
+![image-20221221092357030](./.assets/README/image-20221221092357030.png)
+
+
+
+
+
+#### B. `bash init.sh -d`: Download toolchain
+
+Run following command, toolchain will download cross-compile toolchains for you. 
 
 ```sh
 bash init.sh -d
 ```
-
-The tool will download cross-compile toolchains for you. **If download failed, remove the download folder by `rm -r <download-folder>`  and re-run `bash init.sh -d` to download.
-
+> Note: by default, cross-compile toolchain source code will be download at `<ProjectBaseDir>/tools/src`. You can change first few lines of `init.sh` to change installation path.
 
 
-![Snipaste_2022-11-28_09-06-28](./.assets/Snipaste_2022-11-28_09-06-28.png)
 
+![image-20221221093112528](./.assets/README/image-20221221093112528.png)
 
 
 
 
 
-After that, run following command to compile and install cross-compile toolchains:
+#### C. `bash init.sh -c`: Compile and install toolchain
+
+
+After download, run following command to compile and install cross-compile toolchains:
 
 ```sh
 bash init.sh -c
 ```
 
+
+> Note: Compiled cross-compile tools will be installed at `<ProjectBaseDir>/tools/bin`. You can change first few lines of `init.sh` to change installation path as well as compile flags.
+
 This may take a few minutes. 
 
-![Snipaste_2022-11-28_09-06-47](./.assets/Snipaste_2022-11-28_09-06-47.png)
+![image-20221221093218068](./.assets/README/image-20221221093218068.png)
 
-![Snipaste_2022-11-28_09-12-25](./.assets/Snipaste_2022-11-28_09-12-25.png)
+![image-20221221104518709](./.assets/README/image-20221221104518709.png)
 
-
-
-
-
-# Quick run
-
-After compiling and installing cross-compile tools, run `make no-gdb` to compile the system.
-
-```shell
-make no-gdb
-```
-
-![image-20221129084822355](./.assets/Snipaste_2022-11-29_09-02-28.png)
+![image-20221221105118058](./.assets/README/image-20221221105118058.png)
 
 
 
 
 
-Then, run `bochs -f bochsrc` to start simulating.
+#### D. `source init.sh`: install in PATH
+
+After compile and install, tools can be found in `<PREFIX>/tools/bin`, by default, `<PREFIX>` is set to the parent directory of `init.sh`
 
 ```sh
+ls tools/bin
+```
+
+![image-20221221105513297](./.assets/README/image-20221221105513297.png)
+
+
+
+Run `init.sh`, so that add `<PREFIX>/tools/bin` into `PATH`
+
+```sh
+source init.sh
+which i686-elf-gcc
+```
+
+![image-20221221105630037](./.assets/README/image-20221221105630037.png)
+
+
+
+
+
+### 2. Run JackOS
+
+#### A. One step method: `make run-no-gdb`
+
+After compiling and installing cross-compile tools, run `make run-no-gdb` to compile the kernel and start bochs.
+
+```shell
+make run-no-gdb
+```
+
+![image-20221221105848459](./.assets/README/image-20221221105848459.png)
+
+
+
+
+
+#### B. Two step method: `make no-gdb` and `bochs -f bochs`
+
+Besides `make run-no-gdb`, first running `make no-gdb` and then `bochs -f bochs` are exactly the same .
+
+```sh
+make no-gdb
 bochs -f bochsrc
 ```
 
-![image-20221129085233731](./.assets/Snipaste_2022-11-29_09-04-20.png)
+![image-20221221110212469](./.assets/README/image-20221221110212469.png)
 
 
 
@@ -121,372 +165,49 @@ bochs -f bochsrc
 
 
 
-# Hacking JackOS
+# Reference
 
-Detailed infomation about how to hacking `JackOS` is listed below.
+**Resources (blog / video / paper / book, etc.) and people listed below help a lot to this project. Thanks to their time, energy and selfless dedication of sharing their knowledge.**
 
-![Hack JackOS](.assets/Snipaste_2022-11-29_09-06-21.png)
+Here's the reference list:
 
 
 
+**Manual/Reference**:
 
+- [Intel 64 and IA-32 Architecture Software Developer's Manual (Full Volume Bundle)](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
+- IBM PC/AT Technical Reference
+- IBM VGA/XGA Technical Reference
+- Serial ATA - Advanced Host Controller Interface (AHCI), Revision 1.3.1
+- Serial ATA: High Speed Serialized AT Attachment, Revision 3.2
+- ATA/ATAPI Command Set - 3 (ACS-3)
 
-## Workflow Tools (With explanation)
 
-To write, test and debug the kernel, a series of tools are needed. All the tools introduced below are organized according to develop workflow. 
 
-SO, read this section, you will get to know develop workflow of kernel programming, testing and debugging.
+Books:
 
+- *Operating Systems: Three Easy Pieces* (Remzi, A & Andrea A.)
+- *Computer System - A Programmer's Perspective Third Edition (CS:APP)* (Bryant, R & O'Hallaron, D)
+- *Modern Operating System* (Tanenbaum, A)
+- *X86/x64 Architecture: Exploration and Programming* (Zhi, D)
+- *Operating System: Truth Restoration* (Gang, Z)
+- *Professional Linux Kernel Architecture* (Wolfgang, M)
+- *A Heavily Commented Linux Kernel Source Code Linux Version 0.11*, (Jiong, Z)
 
 
-### 1. Disk Image
 
-#### A. Explanation
+Websites:
 
-A disk is a **physical** collections of cells/block (bits), each cell (bit) can store a bit number, either 0/1.
+- [OSDev](https://wiki.osdev.org/Main_Page) - Some ancient resources。
+- [FreeVGA](http://www.osdever.net/FreeVGA/home.htm) - Resources about VGA programming。
 
-So, we can divide disk into two parts: a series of binary codes and the physical device that store the binary codes.
 
-![Image of my disk](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913104104400.png)
 
-From the perspective of binary code, files are also collections of binary codes. So, we can store the binary codes in the disk into a files.
+Other: 
 
-![File is also collection of binary codes](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913104550372.png)
+- Linux Manual
 
-So, **a file that identically stores the binary codes of a disk is called disk image**. And **using disk image, we can simulate a hard disk**.
 
-> Notes: **disk image is a file**. In essence, disk image has no difference to your `.ppt` , `.xlsx` files. Only the content in the disk image decide if the file is a disk image. If the binary content of a file matches a certain disk, then the file is a disk image of that disk.
-
-### B. Create Disk Image
-
-To create disk image, several tools are available.
-
-#### 1) dd
-
-`dd` is a terminal tool which help us to **edit** binary files. Here we use it to create a disk image.
-
-PS: edit includes more than create, we will cover that shortly.
-
-```shell
-dd if=/dev/zero of=YourImageName.img bs=BlockSize count=BlockNum
-```
-
-`/dev/zero` is a special device file which continuously produces zeros. Here we select input file (`if`) whose binary codes are all zero and output to output file (`of`)  with given (`count` ) number of blocks. Each block is `bs`  bytes.
-
-An example is 
-
-```shell
-dd if=/dev/zero of=disk.img bs=512 count=3
-```
-
-where we create a disk image `disk.img` of 3 (blocks) \* 512 (bytes each) = 1.5M bytes.
-
-![disk.img is full of zero](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913134447010.png)
-
-
-
-#### 2) bximage
-
-`bximage` is a disk image tool within `bochs`. `bochs` is a virtual machine manager with support single step debugging. So we will use `bochs` to debug our kernel. 
-
-When compiling and installing `bochs`, `bximage` is also installed, so just use the `bximage` tool.
-
-![bximage create disk image](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913135032077.png)
-
-
-
-### C. View Disk Image
-
-Since our kernel is stored on the disk, and the first step to start the system is to read the system on the disk, so we need to directly read binary bits of the disk image in many occasions. 
-
-Here are tools that can help us to read binary bits of a disk image (not only disk image, but any files/device).
-
-#### 1) wxHexEditor
-
-`winHex` is a very convenient tool in `Windows`. Unfortunately, `winHex` doesn't support `Linux`, so we got `wxHexoEditor`, the `Linux` third party open source clone of `winHex`.
-
-Simply install `wxHexEditor` via `apt`, and use `wxHexEditor` directly in terminal
-
-```shell
-wxHexEditor
-```
-
-You will see
-
-![wxHexEditor](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913135728375.png)
-
-You can open a file / device through menu on the top.
-
-PS: **Open a device need root privilege**
-
-
-
-#### 2) hexdump
-
-Sometimes, we just want to get a quick glance at the binary files in the terminal. So, `hexdump` is a simple tool to help us.
-
-Basic usage
-
-```shell
-hexdump -C -n length -s skip file_name
-```
-
-Here, `-C` is format option. `-C` means showing offset on the left, hex of file content on the middle and ASCII characters on the right.
-
-PS: Empty lines will be folded and represented by `*`
-
-![hexdump](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913140754164.png)
-
-
-
-#### 3) vim + xxd
-
-You can use vim and xxd to have a better reading.
-
-```shell
-vim <(xxd BinaryFile)
-```
-
-For example,
-
-```shell
-vim <(xxd test.o)
-```
-
-and you will see
-
-PS: `test.o` is a short C++ compiled program, listed below shortly.
-
-![Use vim to view binary files, including disk image](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913151932328.png)
-
-#### 4) vimdiff + xxd
-
-A lot of times, we may need to compare two binary files, to do that, we can combine `vim difference`  with `xxd`
-
-```shell
-vimdiff <(xxd BinaryFile1) <(BinaryFile2)
-```
-
-For example, compare `test.o`  and `disk.img`
-
-```shell
-vimdiff <(xxd test.o) <(xxd disk.img)
-```
-
-and you will see
-
-![Use vim to compare two binary files](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913151022228.png)
-
-
-
-
-
-
-
-### D. Edit Disk Image
-
-Since we need to write booting code in the start sector, we need to edit binary bits of disk image directly.
-
-
-
-#### 1) dd (Copy/overwrite)
-
-we can use `dd` to write the binary bits of our program into the disk image. Simply change the `if` from `/dev/zero` to our program.
-
-Compile a short program first
-
-```shell
-echo -e 'int main(){ int a = 1+1; return 0; }' > test.cpp
-g++ test.cpp -o test.o
-```
-
-And then we use `dd` to write the code into `disk.img`
-
-```shell
-dd if=test.o of=disk.img conv=notrunc 
-```
-
-PS: **`conv` means special options, here we use `notrunc`, means do not truncate ·`disk.img` after write `test.o` into `disk.img`.**
-
-Then, we use `vimdiff` to compare `test.o` and `disk.img`
-
-```shell
-vimdiff <(xxd test.o) <(xxd disk.img)
-```
-
-And you will see
-
-![vimdiff after dd](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913152646300.png)
-
-
-
-#### 2) wxHexEditor (Change Bits)
-
-Some times, we just want to change a few bits of the disk image, for example, changing bootable flag, change section number and etc.
-
-So, we can use `wxHexEditor` to change some bits.
-
-![Use wxHexEditor to change 45->49](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913153443486.png)
-
-And result of `vimdiff` is
-
-![Result](https://jack-1307599355.cos.ap-shanghai.myqcloud.com/image-20220913153620731.png)
-
-
-
-
-
-## 2. Programming and Compile
-
-### A. Text Editor
-
-Whatever editor/IDE you'd like, `vscode`, `vim`, `lunarvim`, `clion`, etc. Anything can write is fine. Just you like it.
-
-### B. Compiler
-
-#### 1) Assembly Compiler
-
-**For developing OS, we have to do some dirty assembly works :(**. There's a lot of assembly compiler we can use, like `masm`, `at` and etc. Likewise, we can choose `x86` format assembly or `AT&T` format.
-
-But in consideration of online help, it's better to use `x86` assembly format for it's classic and there are a lot of resources we can use on the Internet.
-
-But unfortunately, one of the most famous and classic `x86` assembler is `masm` which belongs to Intel and **it is not free**. 
-
-So, I just choose to use `nasm`, a new (considering `masm` was created in 1970s), popular (more and more people are using `nasm`), and fancy (it offers a lot of macro) `x86` assembler.
-
-
-
-Run `bash init.sh -d`, it will automatically install `nasm` for you.
-
-
-
-#### 2) C Compiler
-
-`i686-elf-gcc` is needed. Run `bash init.sh -c`, to get it.
-
-
-
-### C. Binutils
-
-Finally, you will need a linker like `ld`, or `AT&T` format assembly compiler like `ar`. These binutils you can also get them with `bash init.sh -d`
-
-
-
-## 3. Virtual Machines
-
-We need a virtual machine to run and debug our kernel.
-
-### A. Bochs (Debugging)
-
-Under many circumstances, we need to single step debugging. For example, when programming for scheduler or multiprocess, we need single step debugging to see what happened during the seconds. So, for single step debugging, we will use `bochs` .
-
-Popular debugging virtual machines include `bochs` and `qemu`. But since I'm much more familiar with `bochs`, I'll just keep using `bochs`.
-
-#### 1) Installation (Bochs 2.7)
-
-You can just install `bochs` via its `sourceforge`, it's very easy to compile and install it. Remember, since the `bochs` can simulate your devices, YOU NEED TO COMPILE IT ON YOUR PLATFORM (YOUR OWN COMPUTER).
-
-We first need to download `bochs`, here we use `bochs 2.7`
-
-```shell
-visit https://sourceforge.net/projects/bochs/files/bochs/2.7/bochs-2.7.tar.gz/download to download
-```
-
-then extract source code.
-
-```shell
-tar xzvf bochs-2.7.tar.gz
-```
-
-Before compile, configure compile options first (a popular configure command is listed below):
-
-```shell
-cs bochs-2.7
-./configure --enable-debugger --enable-iodebug --enable-x86-debugger --with-x --with-x11 
-```
-
-Finally, make and install `bochs`
-
-```shell
-make -j $(nproc)
-make install
-```
-
-
-
-For more information, please check `bochs`  manual `Chapter 3: Installation`
-
-
-
-#### 2) Configure Bochs
-
-To run our kernel, we need to setup configuration of the virtual machine that our kernel will be run on.
-
-Here's my `bochrc` configuration
-
-```shell
-###############################################################
-
-# Configuration file for Bochs
-
-###############################################################
-
-# how much memory the emulated machine will have
-
-megs: 32
-
-# filename of ROM images
-
-romimage: file=/usr/local/share/bochs/BIOS-bochs-latest
-vgaromimage: file=/usr/local/share/bochs/VGABIOS-lgpl-latest
-
-# what disk images will be used
-
-# floppya: 1_44=a.img, status=inserted
-
-# choose the boot disk.
-
-boot: disk
-
-# where do we send log messages?
-
-# log: bochsout.txt
-
-# disable the mouse and enable us keyboard
-
-mouse: enabled=0
-keyboard: keymap=/usr/local/share/bochs/keymaps/x11-pc-us.map
-
-# 硬盘设置
-
-ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
-
-# Created hard disk image 'JackOS.img' with CHS=406/16/63
-
-ata0-master: type=disk, path="JackOS.img", mode=flat
-
-# gdb远程调试支持, 需要编译Bochs时候指定--enable-gdb-stub参数, 否则报错
-
-# gdbstub: enabled=1, port=1234, text_base=0, data_base=0, bss_base=0
-```
-
-
-
-
-
-#### 3) Basic Debug Command
-
-Manual is always the best tutorial. Please check the manual: https://bochs.sourceforge.io/doc/docbook/user/index.html
-
-For Chinese reader, here's a Chinese version of basic debug command: https://petpwiuta.github.io/2020/05/09/Bochs%E8%B0%83%E8%AF%95%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4/
-
-
-
-
-
-### B. Running
-
-To run the kernel, we can use `VirtualBox`. Compared to `VMWare`, `VirtualBox` is an open source virtual machine manager.
 
 
 
@@ -494,8 +215,12 @@ To run the kernel, we can use `VirtualBox`. Compared to `VMWare`, `VirtualBox` i
 
 # Acknowledgement
 
-**Resources (blog / video / paper / book, etc.) and people listed below help a lot to this project. Thanks to their time, energy and selfless dedication of sharing their knowledge.**
+This repository is finished when I participate VISP (Visiting International Student Program) in UW-Madision. 
 
-Here's the acknowledgement list:
 
-- 
+
+In detail, I took CS537: Operating System. This course taught me the basic knowledge of the operating system and inspired me to write the operating system.
+
+
+
+Thanks for TAs teams when I ask some detailed api problem. Thanks professor Remzi for giving visionary suggestions at every important moment or JackOS won't be finished within the semester.
