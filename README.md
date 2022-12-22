@@ -36,6 +36,8 @@ JackOS has following features:
 
 Demo Vides: 
 
+- Youtube: https://www.youtube.com/watch?v=hB6vcdnRUc0
+- Bilibili: https://www.bilibili.com/video/BV1Kv4y1X7Uk/?spm_id_from=333.999.0.0&vd_source=a46a785ab89c09f0998d1f3ad010a333
 
 
 # Quick Run
