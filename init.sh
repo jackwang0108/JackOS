@@ -77,7 +77,7 @@ fi
 
 if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]]; then
     if [[ ! -d "$shell_folder"/tools/src ]]; then
-        read -r -p 'tools/src not exists, create? <y/n>: ' download
+        read -p 'tools/src not exists, create? <y/n>: ' download
         if [[ $download = "y" ]]; then
             mkdir -p "$shell_folder"/tools/src
         fi
@@ -86,7 +86,7 @@ if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]
         echo 'Downloading debug tools...'
         purple "=> bochs-2.7"
         if  [ -f "$shell_folder"/tools/src/bochs-2.7.tar.gz ]; then
-            green "bochs already exists, nothing changed, run \`rm -rf tools/src/bochs-2.7.tar.gz\` to force re-download"
+            green 'bochs already exists, nothing changed, run `rm -rf tools/src/bochs-2.7.tar.gz` to force re-download'
         else
             if wget -t 5 -T 5 -c --quiet --show-progress -O "$shell_folder"/tools/src/bochs-2.7.tar.gz  https://sourceforge.net/projects/bochs/files/bochs/2.7/bochs-2.7.tar.gz ; then
                 green "bochs download success"
@@ -100,7 +100,7 @@ if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]
         if  wget -T 5 -c --quiet --show-progress -P "$shell_folder"/tools/src https://download.qemu.org/qemu-7.2.0-rc4.tar.xz; then
             green "qemu download success"
         else
-            red "qemu download fail, exiting... Re-run \`bash init.sh -d\` to continue qemu download"
+            red 'qemu download fail, exiting... Re-run `bash init.sh -d` to continue qemu download'
             exit 255
         fi
         echo 'Downloading cross-compiler...'
@@ -108,14 +108,14 @@ if [[ $1 = "-d" ]] || [[ $1 = "--download" ]] || [[ ! -d "$shell_folder"/tools ]
         if  wget -T 5 -c --quiet --show-progress -P "$shell_folder"/tools/src https://ftp.gnu.org/gnu/gcc/gcc-10.4.0/gcc-10.4.0.tar.gz; then
             green "gcc download success"
         else
-            red "gcc download fail, exiting... Re-run \`bash init.sh -d\` to continue gcc download"
+            red 'gcc download fail, exiting... Re-run `bash init.sh -d` to continue gcc download'
             exit 255
         fi
         purple "=> binutils-2.38"
         if  wget -c -T 5 --quiet --show-progress -P "$shell_folder"/tools/src https://ftp.gnu.org/gnu/binutils/binutils-2.38.tar.gz;then
             green "binutils download success"
         else
-            red "binutils downlaod fail, exiting... Re-run \`bash init.sh -d\` to continue binutils download"
+            red 'binutils downlaod fail, exiting... Re-run `bash init.sh -d` to continue binutils download'
             exit 255
         fi
     fi
@@ -141,7 +141,7 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
 
     # basics utils
     purple "=> Installing basic utils:"
-    if ! (sudo apt update && sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo | tee "$log"/basic-utils.log); then
+    if ! sudo apt update && sudo apt install -y build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo | tee "$log"/basic-utils.log; then
         red "install basic utils failed, exiting"
         exit 255
     fi
@@ -152,7 +152,7 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
     green "Compile options: $bochs_no_gdb_configure"
     echo "Extracting..."
     sleep 3s
-    if ! (tar xzf "$shell_folder"/tools/src/bochs-2.7.tar.gz); then
+    if ! tar xzf "$shell_folder"/tools/src/bochs-2.7.tar.gz; then
         red "extract bochs-2.7.tar.gz fail, exiting"
         exit 255
     fi
@@ -162,16 +162,16 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
     fi
     # bochs-2.7 no-gdb
     cd "$shell_folder"/tools/src/build-bochs || (red 'cd to build-bochs fail' ;exit)
-    if ! (../bochs-2.7/configure --prefix="$PREFIX" "$bochs_no_gdb_configure" 2>&1 | tee "$log"/bochs-debugger-configure.log); then
+    if ! ../bochs-2.7/configure --prefix="$PREFIX" $bochs_no_gdb_configure 2>&1 | tee "$log"/bochs-debugger-configure.log; then
         red 'bochs-2.7 no-gdb configure fail, exiting...'
         exit 255
     fi
-    if ! (make -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make.log); then
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make.log; then
         red "bochs-2.7 no-gdb make fail, exiting..."
         exit 255
     fi
     cp bochs bochsdbg
-    if ! (make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make-install.log); then
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-debugger-make-install.log; then
         red "bochs-2.7 no-gdb make install fail, exiting..."
         exit 255
     fi
@@ -180,24 +180,24 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
     purple "=> Compile bochs-2.7: with gdb"
     green "Compile options: $bochs_with_gdb_configure"
     sleep 5s
-    if ! (../bochs-2.7/configure --prefix="$shell_folder"/tools/build-bochs-gdb "$bochs_with_gdb_configure" 2>&1 | tee "$log"/bochs-gdb-debugger-configure.log); then
+    if ! ../bochs-2.7/configure --prefix="$shell_folder"/tools/build-bochs-gdb $bochs_with_gdb_configure 2>&1 | tee "$log"/bochs-gdb-debugger-configure.log; then
         red "bochs-2.7 with-gdb configure fail, exiting..."
         exit 255
     fi
-    if ! (make -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make.log); then
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make.log; then
         red "bcohs-2.7 with-gdb make fail, exiting..."
         exit 255
     fi
     cp bochs bochsdbg
-    if ! (make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make-install.log); then
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/bochs-gdb-make-install.log; then
         red "bochs-2.7 with-gdb make install fail, exiting...."
         exit 255
     fi
-    if ! (mv "$shell_folder"/tools/build-bochs-gdb/bin/bochs "$shell_folder"/tools/bin/bochs-gdb); then
+    if ! mv "$shell_folder"/tools/build-bochs-gdb/bin/bochs "$shell_folder"/tools/bin/bochs-gdb; then
         red "bochs-2.7 with-gdb rename fail, exiting..."
         exit 255
     fi
-    if ! (rm -r "$shell_folder"/tools/build-bochs-gdb); then
+    if ! rm -r "$shell_folder"/tools/build-bochs-gdb; then
         red "bochs-2.7 with-gdb remove temp file failed, exiting..."
         exit 255
     fi
@@ -210,24 +210,24 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
         green "Compile options: $qemu_configure"
         echo "Extracting..."
         sleep 2s
-        if ! (tar xJf "$shell_folder"/tools/src/qemu-7.2.0-rc4.tar.xz); then
+        if ! tar xJf "$shell_folder"/tools/src/qemu-7.2.0-rc4.tar.xz; then
             red "extract qemu-7.2.0 fail, exiting"
             exit 255
         fi
-        if ! (mkdir -p build-qemu); then
+        if ! mkdir -p build-qemu; then
             red "creating build-qemu fail, exiting..."
             exit 255
         fi
         cd "$shell_folder"/tools/src/build-qemu || (red 'cd to build-qemu fail' ;exit)
-        if ! (../qemu-7.2.0-rc4/configure --prefix="$PREFIX" "$qemu_configure" 2>&1 | tee "$log"/qemu-configure.log); then
+        if ! ../qemu-7.2.0-rc4/configure --prefix="$PREFIX" $qemu_configure 2>&1 | tee "$log"/qemu-configure.log; then
             red "qemu-7.2.0 configure fail, exiting..."
             exit 255
         fi
-        if ! (make -j "$(nproc)" 2>&1 | tee "$log"/qemu-make.log); then
+        if ! make -j "$(nproc)" 2>&1 | tee "$log"/qemu-make.log; then
             red "qemu-7.2.0 make fail, exiting..."
             exit 255
         fi
-        if ! (make install -j "$(nproc)" 2>&1 | tee "$log"/qemu-make-install.log); then
+        if ! make install -j "$(nproc)" 2>&1 | tee "$log"/qemu-make-install.log; then
             red "qemu-7.2.0 make install fail, exiting..."
             exit 255
         fi
@@ -240,7 +240,7 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
     green "Compile options: $binutils_configure"
     echo "Extracting..."
     sleep 3s
-    if ! (tar xzf "$shell_folder"/tools/src/binutils-2.38.tar.gz); then
+    if ! tar xzf "$shell_folder"/tools/src/binutils-2.38.tar.gz; then
         red "extract binutils-2.38 fail, exiting"
         exit 255
     fi
@@ -249,15 +249,15 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
         exit 255
     fi
     cd "$shell_folder"/tools/src/build-binutils || (red 'cd to build-binutils fail' ;exit)
-    if ! (../binutils-2.38/configure --target=$TARGET --prefix="$PREFIX" "$binutils_configure" 2>&1 | tee "$log"/binutil-configure.log); then
+    if ! ../binutils-2.38/configure --target=$TARGET --prefix="$PREFIX" $binutils_configure 2>&1 | tee "$log"/binutil-configure.log; then
         red "binutils-2.38 configure fail, exiting..."
         exit 255
     fi
-    if ! (make -j "$(nproc)" 2>&1 | tee "$log"/binutil-make.log); then
+    if ! make -j "$(nproc)" 2>&1 | tee "$log"/binutil-make.log; then
         red "binutils-2.38 make fail, exiting..."
         exit 255
     fi
-    if ! (make install -j "$(nproc)" 2>&1 | tee "$log"/binutil-make-install.log); then
+    if ! make install -j "$(nproc)" 2>&1 | tee "$log"/binutil-make-install.log; then
         red "binutils-2.38 make install fail, exiting..."
         exit 255
     fi
@@ -271,7 +271,7 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
     green "Compile options: $binutils_configure"
     echo "Extracting..."
     sleep 3s
-    if ! (tar xzf "$shell_folder"/tools/src/gcc-10.4.0.tar.gz); then
+    if ! tar xzf "$shell_folder"/tools/src/gcc-10.4.0.tar.gz; then
         red "extract gcc-10.4.0.tar.gz fail, exiting..."
         exit 255
     fi
@@ -280,23 +280,23 @@ if [[ $1 = "-c" ]] || [[ $1 = "--compile" ]] || [[ $1 = "-fc" ]] || [[ $1 = '--f
         exit 255
     fi
     cd "$shell_folder"/tools/src/build-gcc || (red 'cd to build-gcc fail' ;exit)
-    if ! (../gcc-10.4.0/configure --target=$TARGET --prefix="$PREFIX" "$gcc_configure" 2>&1 | tee "$log"/gcc-configure.log); then
+    if ! ../gcc-10.4.0/configure --target=$TARGET --prefix="$PREFIX" $gcc_configure 2>&1 | tee "$log"/gcc-configure.log; then
         red "gcc-10.4.0 configure fail, exiting..."
         exit 255
     fi
-    if ! (make -j "$(nproc)" all-gcc 2>&1 | tee "$log"/gcc-make-all-gcc.log); then
+    if ! make -j "$(nproc)" all-gcc 2>&1 | tee "$log"/gcc-make-all-gcc.log; then
         red "gcc-10.4.0 all-gcc make fail, exiting..."
         exit 255
     fi
-    if ! (make -j "$(nproc)" all-target-libgcc 2>&1 | tee "$log"/gcc-make-all-target-libgcc.log); then
+    if ! make -j "$(nproc)" all-target-libgcc 2>&1 | tee "$log"/gcc-make-all-target-libgcc.log; then
         red "gcc-10.4.0 all-target-libgcc make fail, exiting..."
         exit 255
     fi
-    if ! (make install-gcc 2>&1 | tee "$log"/gcc-make-install-gcc.log); then
+    if ! make install-gcc 2>&1 | tee "$log"/gcc-make-install-gcc.log; then
         red "gcc-10.4.0 all-gcc make install fail, exiting..."
         exit 255
     fi 
-    if ! (make install-target-libgcc 2>&1 | tee "$log"/gcc-make-install-target-libgcc.log); then
+    if ! make install-target-libgcc 2>&1 | tee "$log"/gcc-make-install-target-libgcc.log; then
         red "gcc-10.4.0 all-target-libgcc make install fail, exiting..."
         exit 255
     fi
