@@ -2,23 +2,23 @@
 
 # JackOS
 
-> JackOS: A simple operating system written by Shihong(Jack) Wang, for study and practice OS only.
+> JackOS: A simple Operating System written by Shihong(Jack) Wang, for study and practice OS only.
 
 
 
-**JackOS is a simple OS kernel that explains how a real Operating System runs.** It's so simple, that less that 7000 line of codes, but have all component that a real kernel has. By learning and hacking JackOS, you will get deeper understanding of JackOS.
+**JackOS is a simple kernel that explains how a real Operating System runs.** It's so simple that less that 7000 line of codes, but have all components that a real kernel has. By learning and hacking JackOS, you will get a deeper understanding of Operating System.
 
 
 
-I'm a junor student majoring in Computer Science, and JackOS is written when I take CS537 in UW-Madison for I think original projects are easy and want to challenge myself. And I succeed :).
+I'm a junor student majoring in Computer Science. JackOS is written when I take CS537 in UW-Madison because I want to challenge myself and dive deeper into Operating System :).
 
 
 
-I hope this repository can also help **those who want to learn more**, **those who are NOT satisfied with just concept** of Operating System, **those who want to read, write real Operating System Code**.
+I hope this repository can also help **those who want to learn more**, **those who are NOT satisfied with concepts of Operating System taught from class**, **those who want to read, write real Operating System Code**.
 
 
 
-Reading a real OS source code like Linux is tooooo hard, because `slab` and `vfs` and other powerful components greatly increase its complexity, making it toooooo hard to understand. **The design approach of `JackOS` is the simple, the best**, so it implement any component in the simplest way, in order to make reader understand.
+Reading a real kernel source code like Linux is tooooo hard. Some powerful components like `slab` and `vfs` greatly increase the complexity, making the kenrel toooooo hard to understand. **The design concept of `JackOS` is the simple, the best**, so the JackOS implements any components in the simplest way, in order to make it easy to understand.
 
 <img src="./.assets/README/image-20221221110318213.png" alt="image-20221221110318213" style="zoom: 50%;" />
 
